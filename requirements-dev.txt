@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8
+# For LangGraph Studio / `langgraph dev`:
+langgraph-cli[inmem]>=0.2
