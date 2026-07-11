@@ -25,7 +25,7 @@ def test_sqlite_sessions_survive_restart(fake, tmp_path) -> None:
     async def first_process() -> None:
         async with AsyncSqliteSaver.from_conn_string(db_path) as saver:
             graph = build_graph(checkpointer=saver)
-            fake.structured_result = NameCheck(name="Paul", reply="")
+            fake.structured_results[NameCheck] = NameCheck(name="Paul", reply="")
             fake.reply_text = "Hello Paul!"
             await graph.ainvoke(
                 {"messages": [HumanMessage(content="I'm Paul")]}, config()
@@ -34,7 +34,7 @@ def test_sqlite_sessions_survive_restart(fake, tmp_path) -> None:
     async def second_process() -> dict:
         async with AsyncSqliteSaver.from_conn_string(db_path) as saver:
             graph = build_graph(checkpointer=saver)
-            fake.structured_result = None  # greeter must not run again
+            fake.structured_results.clear()  # greeter must not run again
             fake.reply_text = "Welcome back, Paul!"
             return await graph.ainvoke(
                 {"messages": [HumanMessage(content="hi again")]}, config()

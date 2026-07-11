@@ -6,10 +6,16 @@ code change: ``init_chat_model`` resolves ``"provider:model"`` strings
 (``openai:...``, ``anthropic:...``, ``google_genai:...``, ``ollama:...``)
 as soon as the matching integration package is installed — extras for
 each are defined in ``pyproject.toml``, and the supported-provider table
-lives in ``main.py`` (``_PROVIDERS``).
+lives in ``app/env.py`` (``PROVIDERS``).
 
-Note: instances are cached, so changing ``MODEL_NAME`` mid-process has no
-effect — restart instead.
+Agents that need a different model from the rest of the graph pass an
+explicit ``model`` string (see ``BaseAgent``'s ``model_env``); everything
+else falls back to the ``MODEL_NAME`` env variable.
+
+Resolution is uniform: the environment is re-read on **every** call, and
+instances are cached per *resolved* (model, temperature) pair — so both
+``MODEL_NAME`` and per-agent override variables behave identically, and
+repeated calls with the same configuration reuse one instance.
 """
 
 from __future__ import annotations
@@ -24,10 +30,18 @@ DEFAULT_MODEL = "openai:gpt-4o-mini"
 
 
 @cache
-def get_llm(temperature: float = 0.3) -> BaseChatModel:
-    """Return a cached chat model configured from the environment."""
+def _build_llm(model: str, temperature: float) -> BaseChatModel:
+    return init_chat_model(model, temperature=temperature)
 
-    return init_chat_model(
-        os.getenv("MODEL_NAME", DEFAULT_MODEL),
-        temperature=temperature,
-    )
+
+def get_llm(temperature: float = 0.3, model: str | None = None) -> BaseChatModel:
+    """Return a (cached) chat model configured from the environment.
+
+    Args:
+        temperature: sampling temperature for the model.
+        model: explicit ``"provider:model"`` override; ``None`` uses the
+            ``MODEL_NAME`` env variable (falling back to
+            ``DEFAULT_MODEL``).
+    """
+
+    return _build_llm(model or os.getenv("MODEL_NAME", DEFAULT_MODEL), temperature)

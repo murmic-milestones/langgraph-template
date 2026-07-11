@@ -26,12 +26,18 @@ langgraph dev             # LangGraph Studio
   reducer (append), `profile` overwrites. Nodes return partial updates.
 - `app/agents/` — one class per stage: **async** node methods return
   state updates, sync gate methods route conditional edges. Agents are
-  shared across sessions — keep them stateless.
+  shared across sessions — keep them stateless. Per-agent model
+  overrides via `BaseAgent(model_env="MY_STAGE_MODEL")`; image input via
+  `image_message()` / `query_image_structured()` in `base.py`.
 - `app/llm.py` — the only place a model is constructed
-  (`init_chat_model`, provider comes from `MODEL_NAME` env). Supported
-  providers (OpenAI, Anthropic, Gemini, Ollama) are defined in three
-  places that must stay in sync: `_PROVIDERS` in `main.py`, the extras
-  in `pyproject.toml`, and the table in `.env.example`/README.
+  (`init_chat_model`, provider comes from `MODEL_NAME` env, explicit
+  `model=` arg for per-agent overrides).
+- `app/env.py` — provider registry (`PROVIDERS`, with optional
+  `preflight` checks like the Ollama server ping) and
+  `check_environment(extra_model_vars=...)`, which every driver should
+  call at startup. Providers are defined in three places that must stay
+  in sync: `PROVIDERS` here, the extras in `pyproject.toml`, and the
+  table in `.env.example`/README.
 - `app/tools.py` — tool list for the chat ⇄ tools loop.
 - One graph run per chat turn; incomplete onboarding ends the run and
   the next invoke re-enters from START, so nodes must be idempotent.
@@ -53,14 +59,28 @@ documented steps including deleting the matching tests.
   by langgraph.json / Studio, which inject persistence) vs
   `build_graph(checkpointer=...)` for CLI/tests/servers. Don't add a
   default checkpointer back to `build_graph`.
+- `graph = build_graph()` runs at import time — everything it constructs
+  must be side-effect free until first use (no file/network I/O or
+  env-var snapshots in constructors; make such dependencies lazy).
+- RetryPolicy does NOT retry ValueError-family errors — including
+  `OutputParserException` (malformed structured output), which
+  subclasses ValueError. Only connection errors, HTTP 5xx, and unknown
+  exceptions retry by default.
 - Nodes are async — call the graph with `ainvoke`/`astream`. Sync
   `invoke` raises. Tests wrap calls in `run()` from `tests/fakes.py`.
 - `STREAMING_NODES` in `main.py` whitelists which nodes stream tokens.
   Any new LLM-calling node is silent until added there; never add nodes
   that emit structured-output JSON or raw tool traffic.
 - Tests monkeypatch `app.agents.base.get_llm` — new agents must fetch
-  the model via `BaseAgent.llm`, not construct one directly.
-- `get_llm` is cached; changing `MODEL_NAME` mid-process won't take.
+  the model via `BaseAgent.llm`, not construct one directly. The fake's
+  structured results are keyed by schema class
+  (`fake.structured_results[MySchema] = ...`); an un-queued schema
+  makes the call fail loudly, which is how "node did not run" is
+  asserted. Never let tests depend on installed packages or live
+  servers — stub `find_spec` and preflights (see test_environment.py).
+- `get_llm` re-reads the env on every call and caches instances per
+  resolved (model, temperature) pair — `MODEL_NAME` and per-agent
+  override variables have identical semantics.
 - Trimming affects only what is *sent* to the model
   (`MAX_HISTORY_MESSAGES` in `chat.py`); state keeps the full history.
 - Keep dependency pins to major 1.x ranges (verified against langgraph

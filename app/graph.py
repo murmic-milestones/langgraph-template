@@ -23,6 +23,13 @@ Two entry points:
 * ``graph`` — a compiled instance *without* a checkpointer, referenced by
   ``langgraph.json``. LangGraph Studio / ``langgraph dev`` / the LangGraph
   platform inject their own persistence, and warn if you bring your own.
+
+Because ``graph = build_graph()`` runs at import time, everything
+``build_graph`` constructs must be side-effect free until first use: no
+filesystem writes, no network calls, no reading env vars into baked-in
+values you'd want tests to override. If a dependency needs those (an
+output file, a client), make it lazy — initialise on first use, not in
+``__init__``.
 """
 
 from __future__ import annotations
@@ -38,8 +45,12 @@ from app.agents.greeter import GreeterAgent
 from app.state import AppState
 from app.tools import TOOLS  # [tools]
 
-# Retry transient LLM/API failures (rate limits, timeouts) with exponential
-# backoff before surfacing the error to the caller.
+# Retry transient LLM/API failures with exponential backoff before
+# surfacing the error to the caller. Scope (langgraph's default_retry_on):
+# retries connection errors, HTTP 5xx, and unknown exceptions; does NOT
+# retry programming errors (ValueError/TypeError/...) — note that
+# structured-output parse failures (OutputParserException) subclass
+# ValueError and therefore surface immediately rather than retrying.
 _LLM_RETRY = RetryPolicy(max_attempts=3)
 
 

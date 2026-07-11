@@ -31,7 +31,7 @@ def test_onboarding_then_chat(fake) -> None:
     assert state["messages"][-1].content == "Hello Paul!"
 
     # Turn 3: onboarding is idempotent — no extraction call, straight to chat.
-    fake.structured_result = None  # would break if the greeter ran again
+    fake.structured_results.clear()  # any greeter call would now fail
     fake.reply_text = "Nice weather, Paul."
     state = run(
         graph.ainvoke({"messages": [HumanMessage(content="how's things?")]}, config())
@@ -46,7 +46,7 @@ def test_thread_isolation(fake) -> None:
     run(onboard_paul(graph, fake, thread="thread-a"))
 
     # A fresh thread starts onboarding from scratch.
-    fake.structured_result = NameCheck(name=None, reply="Who are you?")
+    fake.structured_results[NameCheck] = NameCheck(name=None, reply="Who are you?")
     state_b = run(
         graph.ainvoke({"messages": [HumanMessage(content="hello")]}, config("thread-b"))
     )
@@ -87,7 +87,7 @@ def test_greeter_fallback_question(fake) -> None:
     """An empty structured reply falls back to the canned question."""
 
     graph = build_graph(checkpointer=InMemorySaver())
-    fake.structured_result = NameCheck(name=None, reply="")
+    fake.structured_results[NameCheck] = NameCheck(name=None, reply="")
     state = run(graph.ainvoke({"messages": [HumanMessage(content="hi")]}, config("t")))
 
     assert (
@@ -149,7 +149,7 @@ def test_studio_entry_point_runs_statelessly(fake) -> None:
 
     from app.graph import graph as studio_graph
 
-    fake.structured_result = NameCheck(name="Zoe", reply="")
+    fake.structured_results[NameCheck] = NameCheck(name="Zoe", reply="")
     fake.reply_text = "Hi Zoe!"
     state = run(studio_graph.ainvoke({"messages": [HumanMessage(content="I'm Zoe")]}))
 

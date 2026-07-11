@@ -27,64 +27,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
-import sys
-from importlib.util import find_spec
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
+from app.env import check_environment
 from app.graph import build_graph
-from app.llm import DEFAULT_MODEL
 from app.visualization import to_mermaid
 
 # Nodes whose LLM tokens are printed as they arrive.
 STREAMING_NODES = {"chat"}
-
-# Supported model providers: import package, install hint, API-key env var
-# (None = no key needed). MODEL_NAME uses init_chat_model's
-# "provider:model" form; a bare model name is treated as OpenAI.
-# To support another provider, add a row here, an extra in pyproject.toml,
-# and an example in .env.example.
-_PROVIDERS = {
-    "openai": ("langchain_openai", 'pip install -e "."', "OPENAI_API_KEY"),
-    "anthropic": (
-        "langchain_anthropic",
-        'pip install -e ".[anthropic]"',
-        "ANTHROPIC_API_KEY",
-    ),
-    "google_genai": (
-        "langchain_google_genai",
-        'pip install -e ".[google]"',
-        "GOOGLE_API_KEY",
-    ),
-    "ollama": ("langchain_ollama", 'pip install -e ".[ollama]"', None),
-}
-
-
-def check_environment() -> None:
-    """Fail fast with guidance instead of a mid-chat traceback."""
-
-    model = os.getenv("MODEL_NAME", DEFAULT_MODEL)
-    provider = model.split(":", 1)[0] if ":" in model else "openai"
-
-    entry = _PROVIDERS.get(provider)
-    if entry is None:
-        return  # Unknown provider — let init_chat_model report it.
-    package, install_hint, key_var = entry
-
-    if find_spec(package) is None:
-        sys.exit(
-            f"MODEL_NAME={model} needs the {package.replace('_', '-')} "
-            f"package.\nInstall it with: {install_hint}"
-        )
-    if key_var and not os.getenv(key_var):
-        sys.exit(
-            f"Missing {key_var} (required by MODEL_NAME={model}).\n"
-            "Copy .env.example to .env and fill in your key, "
-            f"or export {key_var} in your shell."
-        )
 
 
 async def run_turn(graph, config: dict, text: str) -> None:

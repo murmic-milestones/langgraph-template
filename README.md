@@ -19,16 +19,19 @@ langgraph-template/
 │   ├── conftest.py         # the fake-LLM fixture
 │   ├── fakes.py            # recording FakeLLM + helpers
 │   ├── test_graph.py       # end-to-end graph tests
+│   ├── test_agents_base.py # BaseAgent helpers (models, image input)
+│   ├── test_environment.py # startup-check tests
 │   ├── test_persistence.py # SQLite durability             [removable]
 │   └── test_examples.py    # interrupt demo tests          [removable]
 └── app/
     ├── state.py            # typed state schema + reducers
     ├── llm.py              # provider-agnostic model factory
+    ├── env.py              # provider registry + startup checks
     ├── graph.py            # graph assembly, retries, Studio entry point
     ├── tools.py            # tools for the chat agent       [removable]
     ├── visualization.py    # Mermaid export helpers
     └── agents/
-        ├── base.py         # BaseAgent: async LLM + structured-output plumbing
+        ├── base.py         # BaseAgent: LLM, structured-output + image plumbing
         ├── greeter.py      # onboarding stage (node + gate)
         └── chat.py         # main conversation stage (tools + trimming)
 ```
@@ -72,7 +75,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 12 tests, no API key needed
+   pytest                          # 29 tests, no API key needed
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
    python examples/human_approval.py   # interrupt() demo
@@ -119,6 +122,13 @@ far — you never manage a session store by hand. The module-level `graph`
 in `app/graph.py` is compiled **without** a checkpointer: it is the
 entry point declared in `langgraph.json`, and LangGraph Studio / the
 platform inject their own persistence.
+
+Because that module-level `graph = build_graph()` runs at **import
+time**, everything `build_graph` constructs must stay side-effect free
+until first use — no filesystem writes, no network calls in
+constructors. If an agent needs an output file or a client, initialise
+it lazily (on first use), or importing `app.graph` will misbehave in
+tests and tooling.
 
 ### 3. Async nodes
 
@@ -177,11 +187,24 @@ messages (via `trim_messages`) while the full history stays in state.
 Long conversations stop growing the prompt without losing data. For
 token-based budgets, pass the model itself as `token_counter`.
 
-### 10. Provider-agnostic model factory
+### 10. Provider-agnostic model factory, per-agent overrides
 
 `app/llm.py` uses `init_chat_model`, so the model — including the
-provider — is just the `MODEL_NAME` env string. See "Swapping model
-providers".
+provider — is just the `MODEL_NAME` env string. See "Model providers".
+
+Different graph stages can run **different models** as pure
+configuration: pass `model_env="MY_STAGE_MODEL"` to an agent's
+constructor and that env variable (any `provider:model` string)
+overrides `MODEL_NAME` for that agent only — e.g. a cheap fast model for
+extraction and a stronger one for generation. Name the same variable in
+`check_environment(extra_model_vars=("MY_STAGE_MODEL",))` so it is
+validated at startup too.
+
+```python
+class SummariserAgent(BaseAgent):
+    def __init__(self) -> None:
+        super().__init__(temperature=0.1, model_env="SUMMARISER_MODEL")
+```
 
 ### 11. Token streaming
 
@@ -195,7 +218,13 @@ end in a non-streaming node. The same loop works for SSE/websockets.
 
 LLM-calling nodes are registered with `retry_policy=RetryPolicy(...)`,
 so rate limits and timeouts retry with backoff at the graph level
-instead of try/except in every agent.
+instead of try/except in every agent. Know the default scope: LangGraph
+retries connection errors, HTTP 5xx, and unrecognised exceptions, but
+**not** `ValueError`/`TypeError`-style programming errors — and a
+structured-output parse failure (`OutputParserException`) subclasses
+`ValueError`, so a model that returns malformed JSON surfaces
+immediately rather than retrying. Pass a custom `retry_on` if you want
+different behaviour.
 
 ### 13. Testing with a fake LLM
 
@@ -204,7 +233,21 @@ no network: `conftest.py` monkeypatches the LLM factory at the seam all
 agents use (`app.agents.base.get_llm`) and substitutes a recording fake
 (`fakes.py`) that supports plain, structured, and tool-binding calls.
 This exercises real routing, reducers, checkpointing, tool execution,
-and trimming — 12 tests in well under a second.
+and trimming — the whole suite runs in well under a second.
+
+Structured results are **keyed by schema class**, so graphs with many
+structured-output agents need no fake per agent:
+
+```python
+fake.structured_results[NameCheck] = NameCheck(name="Paul", reply="")
+```
+
+A structured call whose schema has no queued result **fails the test** —
+proving a node did *not* run is simply not queueing its schema (see the
+"onboarding is idempotent" test). Environment-dependent behaviour is
+always stubbed: the startup-check tests monkeypatch `find_spec` and the
+Ollama preflight so results never depend on which packages happen to be
+installed on the machine running the tests.
 
 ### 14. Visualisation, Studio, CI
 
@@ -212,6 +255,49 @@ and trimming — 12 tests in well under a second.
 also renders PNG). `langgraph dev` opens the graph in **LangGraph
 Studio** for step-through debugging. GitHub Actions runs ruff + pytest
 on Python 3.10/3.12/3.14 for every push and PR.
+
+### 15. Image (vision) input
+
+`image_message(text, path)` in `app/agents/base.py` builds the
+provider-agnostic content blocks for one image + prompt, and
+`self.query_image_structured(...)` combines it with structured output —
+the building blocks of any "analyse this picture" agent:
+
+```python
+result = await self.query_image_structured(
+    "You are a photo analyst ...",     # system prompt
+    "What is in this photo?",          # user text
+    image_path,
+    PhotoCheck,                        # Pydantic schema
+)
+```
+
+The chat flow in this template never calls it, but the content-block
+format is the one thing you cannot verify offline — it is unit-tested
+here, and you should still run one real call against your provider (the
+configured model must support vision) before trusting a new one.
+
+### 16. Side-effecting agents (batch pipelines)
+
+This template's agents are *pure*: state in, state out, persistence
+owned by the checkpointer. Agents that write outputs themselves — files,
+database rows, API calls — follow a different recipe (proven out in a
+sibling batch-pipeline project):
+
+* **One graph run per unit of work** (one image, one document, one
+  ticket) — the driver owns the loop, ordering, `--limit`-style options
+  and progress reporting; the graph only knows about a single item.
+* **Inject effect dependencies through agent constructors** (a store
+  object wrapping the CSV/folder/API), never module-level paths —
+  that keeps the fake-LLM seam intact and lets tests point agents at
+  `tmp_path`.
+* **Make nodes idempotent and let outputs double as resume state**: each
+  node checks its own store ("does my row/file exist?") and no-ops when
+  the work is done, so re-running an interrupted batch is always safe —
+  often no checkpointer is needed at all.
+* **Keep stores lazy** (no directory creation or file reads in
+  `__init__`) so the import-time `graph = build_graph()` stays
+  side-effect free (see pattern 2).
 
 ## Optional features — how to add or remove
 
@@ -244,10 +330,14 @@ serve` or the desktop app) and pull the model (`ollama pull llama3.2`)
 first. Note that the greeter relies on structured output and the chat
 stage on tool calling, so pick an Ollama model that supports tools.
 
-`main.py`'s startup check validates the provider package and key up
-front and prints install/config guidance instead of a traceback. To add
-another provider: one row in `_PROVIDERS` (`main.py`), one extra in
-`pyproject.toml`, one example line in `.env.example`.
+`check_environment()` in `app/env.py` validates every configured model
+(the `MODEL_NAME` default plus any per-agent override variables you pass
+via `extra_model_vars`) before the first run: provider package present,
+API key set, and — where the provider row defines a `preflight` — extra
+checks like pinging the local Ollama server. Call it from any driver you
+write, not just the CLI. To add another provider: one `Provider` row in
+`app/env.py`, one extra in `pyproject.toml`, one example line in
+`.env.example`.
 
 ## Serving over HTTP
 
