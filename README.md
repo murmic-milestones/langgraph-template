@@ -14,15 +14,18 @@ langgraph-template/
 ├── .env.example            # copy to .env and fill in
 ├── .github/workflows/ci.yml# lint + format + tests on 3.10/3.12/3.14
 ├── examples/
-│   └── human_approval.py   # standalone interrupt() demo   [removable]
+│   ├── human_approval.py   # standalone interrupt() demo   [removable]
+│   └── agent_engine_app.py # Google Agent Engine adapter   [removable]
 ├── tests/
 │   ├── conftest.py         # the fake-LLM fixture
 │   ├── fakes.py            # recording FakeLLM + helpers
 │   ├── test_graph.py       # end-to-end graph tests
 │   ├── test_agents_base.py # BaseAgent helpers (models, image input)
 │   ├── test_environment.py # startup-check tests
+│   ├── test_llm.py         # model factory resolution/caching
 │   ├── test_persistence.py # SQLite durability             [removable]
-│   └── test_examples.py    # interrupt demo tests          [removable]
+│   ├── test_examples.py    # interrupt demo tests          [removable]
+│   └── test_agent_engine.py# Agent Engine adapter tests    [removable]
 └── app/
     ├── state.py            # typed state schema + reducers
     ├── llm.py              # provider-agnostic model factory
@@ -75,7 +78,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 29 tests, no API key needed
+   pytest                          # 34 tests, no API key needed
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
    python examples/human_approval.py   # interrupt() demo
@@ -309,7 +312,8 @@ comments. Removal never requires understanding the feature's internals.
 | Tool calling `[tools]` | `app/tools.py`, 2 marked lines in `chat.py`, 4 in `graph.py` | steps listed in `app/tools.py` docstring |
 | History trimming `[trim]` | `app/agents/chat.py` | delete the `trim_messages` call, pass `state["messages"]` |
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
-| interrupt() demo | `examples/`, `tests/test_examples.py` | delete both files |
+| interrupt() demo | `examples/human_approval.py`, `tests/test_examples.py` | delete both files |
+| Agent Engine (GCP) | `examples/agent_engine_app.py`, `tests/test_agent_engine.py`, `[vertexai]` extra | delete all three |
 
 ## Model providers
 
@@ -321,7 +325,8 @@ supported out of the box:
 |---|---|---|---|
 | OpenAI | `pip install -e "."` (default) | `openai:gpt-4o-mini` | `OPENAI_API_KEY` |
 | Anthropic | `pip install -e ".[anthropic]"` | `anthropic:claude-sonnet-5` | `ANTHROPIC_API_KEY` |
-| Gemini | `pip install -e ".[google]"` | `google_genai:gemini-2.5-flash` | `GOOGLE_API_KEY` |
+| Gemini (API key) | `pip install -e ".[google]"` | `google_genai:gemini-2.5-flash` | `GOOGLE_API_KEY` |
+| Gemini (Vertex AI) | `pip install -e ".[vertexai]"` | `google_vertexai:gemini-2.5-flash` | none (ADC†) |
 | Ollama | `pip install -e ".[ollama]"` | `ollama:llama3.2` | none (local) |
 
 No code changes to switch — install the extra, set `MODEL_NAME` and the
@@ -338,6 +343,33 @@ checks like pinging the local Ollama server. Call it from any driver you
 write, not just the CLI. To add another provider: one `Provider` row in
 `app/env.py`, one extra in `pyproject.toml`, one example line in
 `.env.example`.
+
+## Deploying to Google Agent Engine (Gemini Enterprise Agent Platform)
+
+`examples/agent_engine_app.py` wraps the graph in the platform's
+custom-agent contract: a pickle-able class with a config-only
+`__init__`, graph construction in `set_up()` (server-side), and
+`query()`/`async_query()` entry points returning JSON-serialisable
+results. Sessions map the platform conversation onto the checkpointer's
+`thread_id`, exactly like every other driver in this template.
+
+```bash
+pip install -e ".[vertexai]"
+gcloud auth application-default login
+```
+
+then follow the deploy snippet in the module docstring
+(`vertexai.init(...)` + `agent_engines.create(AgentEngineApp(...),
+requirements=[...], extra_packages=["app"])`). Notes:
+
+* The default `InMemorySaver` keeps sessions per-container; for real
+  deployments swap in a durable saver (Cloud SQL / AlloyDB, see the
+  comment in `set_up()`).
+* On the platform, prefer `google_vertexai:...` models — they
+  authenticate via the runtime's service account, no API key to manage.
+* The adapter's local contract (pickling, set_up, query round-trip) is
+  covered by `tests/test_agent_engine.py` with the fake LLM; validate a
+  real deployment with one `remote.query(...)` call.
 
 ## Serving over HTTP
 

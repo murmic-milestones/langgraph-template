@@ -45,8 +45,10 @@ langgraph dev             # LangGraph Studio
 ## Optional features
 
 Tool calling `[tools]`, prompt trimming `[trim]`, SQLite sessions
-`[sqlite]`, and the `examples/` interrupt demo are deliberately
-loosely coupled. Code blocks belonging to each are marked with the
+`[sqlite]`, the `examples/` interrupt demo, and the Google Agent
+Engine adapter (`examples/agent_engine_app.py` + `[vertexai]` extra;
+config-only pickled `__init__`, graph built in `set_up()`, never call
+`check_environment` there) are deliberately loosely coupled. Code blocks belonging to each are marked with the
 bracketed tag, and removal steps live in the feature's home file
 (`app/tools.py`, `app/agents/chat.py`, `main.py`, `examples/`). When
 editing near a marked block, preserve the tag comments and keep the

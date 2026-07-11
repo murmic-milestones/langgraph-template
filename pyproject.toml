@@ -25,6 +25,12 @@ dependencies = [
 anthropic = ["langchain-anthropic>=1,<2"]
 google = ["langchain-google-genai>=4,<5"]
 ollama = ["langchain-ollama>=1,<2"]
+# Vertex AI models + the SDK for deploying examples/agent_engine_app.py
+# to Google's Agent Engine runtime.
+vertexai = [
+    "langchain-google-vertexai>=3,<4",
+    "google-cloud-aiplatform[agent_engines]>=1.160",
+]
 dev = [
     "pytest>=8",
     "ruff>=0.15",

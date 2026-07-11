@@ -77,6 +77,12 @@ PROVIDERS: dict[str, Provider] = {
     "google_genai": Provider(
         "langchain_google_genai", 'pip install -e ".[google]"', "GOOGLE_API_KEY"
     ),
+    # Vertex AI authenticates via Application Default Credentials (a
+    # service account on GCP, `gcloud auth application-default login`
+    # locally) — no API-key env variable to check.
+    "google_vertexai": Provider(
+        "langchain_google_vertexai", 'pip install -e ".[vertexai]"'
+    ),
     # preflight is late-bound via lambda so tests can monkeypatch
     # _ollama_preflight on the module.
     "ollama": Provider(
