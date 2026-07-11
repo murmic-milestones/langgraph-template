@@ -17,10 +17,10 @@ collected so far, and completed stages pass straight through.
 from __future__ import annotations
 
 from langchain_core.messages import AIMessage
+from pydantic import BaseModel, Field
 
 from app.agents.base import BaseAgent
 from app.state import AppState
-from pydantic import BaseModel, Field
 
 _EXTRACTION_PROMPT = """\
 You are the onboarding step of an assistant. Scan the conversation and work
@@ -51,14 +51,14 @@ class NameCheck(BaseModel):
 class GreeterAgent(BaseAgent):
     """Collects the user's name into ``state['profile']``."""
 
-    def collect_name(self, state: AppState) -> dict:
+    async def collect_name(self, state: AppState) -> dict:
         """Node: set ``profile.name`` from the conversation, or ask for it."""
 
         profile = state.get("profile", {})
         if profile.get("name"):
             return {}  # Already onboarded — pass straight through.
 
-        result = self.query_structured(
+        result = await self.query_structured(
             _EXTRACTION_PROMPT, state["messages"], NameCheck
         )
 

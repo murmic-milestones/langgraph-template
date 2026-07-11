@@ -1,47 +1,47 @@
 # LangGraph Starter Template
 
-A minimal, modern **LangGraph 1.x** hello-world project. It implements a
-tiny two-stage chatbot — collect the user's name, then chat — purely as a
-vehicle for the architecture patterns below. Replace the agents with your
-own and keep the skeleton.
+A minimal, modern **LangGraph 1.x** agent project. It implements a small
+two-stage chatbot — collect the user's name, then chat (with tool
+calling) — purely as a vehicle for the architecture patterns below.
+Replace the agents with your own and keep the skeleton.
 
 ```
 langgraph-template/
-├── main.py                 # CLI entry point (streaming chat loop)
-├── LICENSE                 # 0BSD — permissive, no attribution required
+├── main.py                 # async CLI entry point (streaming chat loop)
+├── pyproject.toml          # packaging, deps, ruff + pytest config
 ├── langgraph.json          # LangGraph Studio / platform config
-├── requirements.txt        # runtime dependencies
-├── requirements-dev.txt    # + pytest, langgraph-cli (Studio)
+├── LICENSE                 # 0BSD — permissive, no attribution required
 ├── .env.example            # copy to .env and fill in
+├── .github/workflows/ci.yml# lint + format + tests on 3.10/3.12/3.14
+├── examples/
+│   └── human_approval.py   # standalone interrupt() demo   [removable]
 ├── tests/
-│   └── test_graph.py       # end-to-end graph test with a fake LLM
+│   ├── conftest.py         # the fake-LLM fixture
+│   ├── fakes.py            # recording FakeLLM + helpers
+│   ├── test_graph.py       # end-to-end graph tests
+│   ├── test_persistence.py # SQLite durability             [removable]
+│   └── test_examples.py    # interrupt demo tests          [removable]
 └── app/
     ├── state.py            # typed state schema + reducers
-    ├── llm.py              # single chat-model factory
-    ├── graph.py            # graph assembly, retry policy, Studio entry point
+    ├── llm.py              # provider-agnostic model factory
+    ├── graph.py            # graph assembly, retries, Studio entry point
+    ├── tools.py            # tools for the chat agent       [removable]
     ├── visualization.py    # Mermaid export helpers
     └── agents/
-        ├── base.py         # BaseAgent: shared LLM + structured-output plumbing
+        ├── base.py         # BaseAgent: async LLM + structured-output plumbing
         ├── greeter.py      # onboarding stage (node + gate)
-        └── chat.py         # main conversation stage
+        └── chat.py         # main conversation stage (tools + trimming)
 ```
 
 ## Starting a new project from this template
 
-1. **Copy the template** (don't develop inside it):
+1. **Copy the template** (don't develop inside it): on GitHub use
+   **"Use this template"** (or `npx degit you/langgraph-template
+   my-new-project`); locally:
 
    ```powershell
-   # Windows
-   robocopy D:\www\langgraph-template D:\www\my-new-project /E /XD .venv __pycache__
+   robocopy D:\www\langgraph-template D:\www\my-new-project /E /XD .venv __pycache__ .git
    ```
-
-   ```bash
-   # macOS / Linux
-   rsync -a --exclude .venv --exclude __pycache__ langgraph-template/ my-new-project/
-   ```
-
-   (If you host the template on GitHub, mark it as a *template repository*
-   and use "Use this template", or `npx degit you/langgraph-template my-new-project`.)
 
 2. **Initialise git and a virtual environment:**
 
@@ -49,225 +49,221 @@ langgraph-template/
    cd my-new-project
    git init
    python -m venv .venv
-   .venv\Scripts\activate        # Windows  (source .venv/bin/activate elsewhere)
-   pip install -r requirements-dev.txt
+   .venv\Scripts\activate          # Windows  (source .venv/bin/activate elsewhere)
+   pip install -e ".[dev]"
    ```
 
-   (`requirements.txt` alone is enough at runtime; the dev file adds
-   `pytest` and the LangGraph CLI for Studio.)
+   (Plain `pip install -e .` is enough at runtime; the `dev` extra adds
+   pytest, ruff, the LangGraph CLI for Studio, and the SQLite saver.)
 
 3. **Configure the environment:**
 
    ```bash
-   copy .env.example .env        # then edit .env
+   copy .env.example .env          # then edit .env
    ```
 
-   Set `OPENAI_API_KEY`, and optionally `MODEL_NAME` (defaults to
-   `gpt-4o-mini`). Uncomment the `LANGSMITH_*` lines to get full traces of
-   every run at [smith.langchain.com](https://smith.langchain.com) — no
-   code changes needed.
+   Set `OPENAI_API_KEY`. `MODEL_NAME` takes any `provider:model` string —
+   see "Swapping model providers" below. Uncomment the `LANGSMITH_*`
+   lines for full run traces with no code changes.
 
 4. **Run it:**
 
    ```bash
-   python main.py            # interactive chat loop (streams tokens)
-   python main.py --graph    # print the graph as Mermaid source
-   pytest                    # run the example test (no API key needed)
-   langgraph dev             # open the graph in LangGraph Studio
+   python main.py                  # interactive chat (streams tokens)
+   python main.py --db chat.db     # same, sessions survive restarts
+   python main.py --graph          # print the graph as Mermaid source
+   pytest                          # 12 tests, no API key needed
+   ruff check . && ruff format .   # lint + format
+   langgraph dev                   # open the graph in LangGraph Studio
+   python examples/human_approval.py   # interrupt() demo
    ```
 
 5. **Make it yours:**
 
-   * Rename/replace `app/agents/greeter.py` and `app/agents/chat.py` with
-     your own agents.
-   * Add your domain fields to `Profile` / `AppState` in `app/state.py`.
-   * Register your nodes and edges in `app/graph.py`.
-   * Keep `main.py` for local testing, or call `build_graph()` from your
-     web framework of choice (see "Serving over HTTP" below).
+   * Rename `pyproject.toml`'s `name`, update `LICENSE`'s copyright line.
+   * Replace the agents in `app/agents/`, add your tools in
+     `app/tools.py`, extend `Profile`/`AppState` in `app/state.py`,
+     register nodes in `app/graph.py`.
+   * Remove the optional features you don't need — each one lists its
+     removal steps where it lives (see "Optional features" below).
 
 ## Architecture patterns
 
 ### 1. One graph run per chat turn
 
-The graph is **not** a long-running loop. Every incoming user message
-triggers exactly one graph run, which flows from `START` to `END` and
-returns the updated state:
+Every incoming user message triggers exactly one graph run:
 
 ```
-START → collect_name ──(name set?)──> chat → END
-                 │
-                 └────── False ────────────> END
+START → collect_name ──(name set?)──> chat ──(tool calls?)──> END
+                 │                     ↑  └──> tools ──┘
+                 └────── False ──────> END
 ```
 
 If the bot needs information from the user (e.g. their name), the run
-simply ends after asking the question. This maps naturally onto
-request/response transports such as HTTP — no long-lived process or
-websocket is required.
+simply ends after asking. This maps naturally onto request/response
+transports — no long-lived process or websocket required.
 
 ### 2. Checkpointer + thread id = sessions
 
-State is persisted per `thread_id` by a **checkpointer**, passed at
-compile time and selected by the runtime that owns the process:
+State is persisted per `thread_id` by a **checkpointer**, chosen by
+whoever owns the runtime:
 
 ```python
-graph = build_graph(checkpointer=InMemorySaver())   # CLI / dev server
+graph = build_graph(checkpointer=InMemorySaver())   # or a SQLite/Postgres saver
 config = {"configurable": {"thread_id": session_id}}
-state = graph.invoke({"messages": [HumanMessage(content=text)]}, config)
+state = await graph.ainvoke({"messages": [HumanMessage(content=text)]}, config)
 ```
 
-The next invoke on the same thread resumes with the full message history
-and everything collected so far — you never manage a session store by
-hand. For production, swap in a durable checkpointer
-(`langgraph-checkpoint-sqlite` or `langgraph-checkpoint-postgres`) so
-sessions survive restarts.
+The next invoke on the same thread resumes with everything collected so
+far — you never manage a session store by hand. The module-level `graph`
+in `app/graph.py` is compiled **without** a checkpointer: it is the
+entry point declared in `langgraph.json`, and LangGraph Studio / the
+platform inject their own persistence.
 
-The module-level `graph` in `app/graph.py` is compiled **without** a
-checkpointer: it is the entry point declared in `langgraph.json`, and
-LangGraph Studio / the platform inject their own persistence.
+### 3. Async nodes
 
-### 3. Typed state with reducers
+All node methods are `async def` and call the model with `ainvoke` /
+`astream`. Async is the deployment-ready default — behind FastAPI or the
+LangGraph platform, sync nodes serialize requests. The CLI drives the
+graph with `asyncio.run`; tests wrap calls in a one-line `run()` helper.
 
-`app/state.py` defines the state as a `TypedDict`. Each key can carry a
-*reducer* that controls how node return values merge into state:
+### 4. Typed state with reducers
 
-* `messages` uses LangGraph's `add_messages` reducer — nodes return only
-  their **new** messages and LangGraph appends them.
-* `profile` has no reducer, so returning it replaces it (nodes return a
-  copied, updated dict).
+`app/state.py` defines the state as a `TypedDict`. `messages` carries
+the `add_messages` reducer — nodes return only their *new* messages and
+LangGraph appends them; `profile` has no reducer, so returning it
+replaces it. Nodes return **partial updates**, never the whole state.
 
-Nodes return **partial updates** (`{"profile": {...}}`), never the whole
-state. This replaces hand-rolled deep-merge + jsonschema validation with
-typed, declarative merging.
+### 5. Agents as classes: node methods + gate methods
 
-### 4. Agents as classes: node methods + gate methods
+Each stage is a class in `app/agents/` extending `BaseAgent`:
+**node methods** (async, do the work, return a state update) and
+**gate methods** (sync predicates used by `add_conditional_edges`).
+Prompt logic, routing logic, and wiring stay separated — `app/graph.py`
+reads as a table of contents. Agent instances are shared across
+sessions, so keep them **stateless**; per-conversation data belongs in
+the graph state.
 
-Each stage of the flow is a class in `app/agents/` extending `BaseAgent`.
-An agent contributes two kinds of methods:
+### 6. Tool calling (the chat ⇄ tools loop)
 
-* **Node methods** (`collect_name`, `respond`) — take the state, do the
-  work, return a partial state update. Registered with `add_node`.
-* **Gate methods** (`is_name_set`) — pure predicates over the state used
-  as routing functions. Registered with `add_conditional_edges`.
+`app/tools.py` defines plain `@tool` functions; the chat agent binds
+them and `ToolNode` executes whatever the model requests, looping back
+to `chat` until it answers without tool calls (`tools_condition` does
+the routing). Add a tool = write one decorated function and append it to
+`TOOLS`; nothing else needs wiring.
 
-This keeps prompt/LLM logic, routing logic, and graph wiring separated:
-the graph in `app/graph.py` reads as a table of contents for the flow.
-One caveat: agent instances are shared across threads/sessions, so keep
-them **stateless** — anything per-conversation belongs in the graph state.
-
-### 5. Gated sequential onboarding
+### 7. Gated sequential onboarding
 
 Stages that must complete before the main conversation are chained with
-conditional edges:
+conditional edges. Each stage is **idempotent**: if its fact is already
+collected it returns `{}` and the gate passes through, so re-running the
+whole graph every turn is cheap. Adding a stage is a new node + gate
+pair inserted into the chain.
 
-```python
-builder.add_conditional_edges(
-    "collect_name", greeter.is_name_set, {True: "chat", False: END}
-)
+> LangGraph also supports pausing *mid-run* with `interrupt()` — see
+> `examples/human_approval.py` for a working demo and when to prefer it.
+
+### 8. Structured output via Pydantic
+
+Agents needing machine-readable answers declare a Pydantic model and
+call `self.query_structured(...)`. The schema is enforced by the
+provider's native structured-output mode — no JSON parsing or
+validation-retry code.
+
+### 9. Prompt-window trimming
+
+`ChatAgent.respond` sends only the most recent `MAX_HISTORY_MESSAGES`
+messages (via `trim_messages`) while the full history stays in state.
+Long conversations stop growing the prompt without losing data. For
+token-based budgets, pass the model itself as `token_counter`.
+
+### 10. Provider-agnostic model factory
+
+`app/llm.py` uses `init_chat_model`, so the model — including the
+provider — is just the `MODEL_NAME` env string. See "Swapping model
+providers".
+
+### 11. Token streaming
+
+`main.py` consumes the graph with `stream_mode="messages"`. Two details
+worth copying: **filter by node** (`STREAMING_NODES` — every LLM call
+emits chunks, including structured-output extractions and tool traffic
+that must not reach the user), and **fall back to state** for turns that
+end in a non-streaming node. The same loop works for SSE/websockets.
+
+### 12. Retries for transient failures
+
+LLM-calling nodes are registered with `retry_policy=RetryPolicy(...)`,
+so rate limits and timeouts retry with backoff at the graph level
+instead of try/except in every agent.
+
+### 13. Testing with a fake LLM
+
+`tests/` drives whole conversation turns through the compiled graph with
+no network: `conftest.py` monkeypatches the LLM factory at the seam all
+agents use (`app.agents.base.get_llm`) and substitutes a recording fake
+(`fakes.py`) that supports plain, structured, and tool-binding calls.
+This exercises real routing, reducers, checkpointing, tool execution,
+and trimming — 12 tests in well under a second.
+
+### 14. Visualisation, Studio, CI
+
+`python main.py --graph` prints Mermaid source (`app/visualization.py`
+also renders PNG). `langgraph dev` opens the graph in **LangGraph
+Studio** for step-through debugging. GitHub Actions runs ruff + pytest
+on Python 3.10/3.12/3.14 for every push and PR.
+
+## Optional features — how to add or remove
+
+Each feature is self-contained and marked with a bracketed tag in code
+comments. Removal never requires understanding the feature's internals.
+
+| Feature | Lives in | Remove by |
+|---|---|---|
+| Tool calling `[tools]` | `app/tools.py`, 2 marked lines in `chat.py`, 4 in `graph.py` | steps listed in `app/tools.py` docstring |
+| History trimming `[trim]` | `app/agents/chat.py` | delete the `trim_messages` call, pass `state["messages"]` |
+| SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
+| interrupt() demo | `examples/`, `tests/test_examples.py` | delete both files |
+
+## Swapping model providers
+
+```bash
+pip install langchain-anthropic          # or langchain-google-genai, ...
 ```
 
-Each stage is **idempotent**: if its fact is already collected it returns
-`{}` and the gate passes straight through. So re-running the whole graph
-every turn is cheap, and adding a stage is just a new node + gate pair
-inserted into the chain — e.g. `collect_name → collect_company → chat`.
+then in `.env`:
 
-> Alternative: LangGraph also supports pausing *mid-run* with
-> `interrupt()` / `Command(resume=...)`. The gate pattern here is simpler
-> and stateless-transport-friendly; reach for `interrupt()` when a node
-> must resume from its exact position rather than re-enter from `START`.
-
-### 6. Structured output via Pydantic
-
-When an agent needs machine-readable answers (extracting the name), it
-declares a Pydantic model and calls `self.query_structured(...)`
-(`app/agents/base.py`):
-
-```python
-class NameCheck(BaseModel):
-    name: str | None = Field(default=None, description="...")
-    reply: str = Field(default="", description="...")
+```
+MODEL_NAME=anthropic:claude-sonnet-5
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-`with_structured_output` pushes the schema to the provider's native
-structured-output mode, so the reply arrives as a **validated object** —
-no JSON parsing, schema-validation retries, or "the LLM added extra keys"
-clean-up code.
-
-### 7. Token streaming
-
-`main.py` consumes the graph with `stream_mode="messages"`, printing LLM
-tokens as they are generated. Two details worth copying:
-
-* **Filter by node.** Every LLM call in the graph emits chunks, including
-  the greeter's structured-output extraction, whose deltas are not
-  user-facing. `STREAMING_NODES` whitelists the nodes whose tokens reach
-  the user (chunk metadata carries `langgraph_node`).
-* **Fall back to state.** Turns that end in a non-streaming node (the
-  onboarding question) print the final message from the checkpointed
-  state instead.
-
-The same loop works server-side for Server-Sent Events or websockets.
-
-### 8. Retries for transient failures
-
-Nodes that call an LLM are registered with a `RetryPolicy`
-(`app/graph.py`), so rate limits and timeouts are retried with
-exponential backoff at the graph level instead of ad-hoc try/except
-inside every agent:
-
-```python
-builder.add_node("chat", chat.respond, retry_policy=RetryPolicy(max_attempts=3))
-```
-
-### 9. Single LLM factory
-
-All agents get their model from `app/llm.py`. Model name and credentials
-come from the environment, instances are cached, and switching providers
-(e.g. to `langchain-anthropic`) is a one-file change.
-
-### 10. Graph visualisation & Studio
-
-`app/visualization.py` exports the compiled graph as Mermaid:
-
-```python
-to_mermaid(graph)          # Mermaid source — paste into https://mermaid.live
-to_png(graph, "graph.png") # PNG bytes via the mermaid.ink API
-```
-
-`python main.py --graph` prints the Mermaid source. For interactive
-debugging, `langgraph dev` starts a local server (configured by
-`langgraph.json`) and opens **LangGraph Studio**, where you can step
-through runs node by node, inspect state at each step, and replay turns.
-
-### 11. Testing with a fake LLM
-
-`tests/test_graph.py` drives three full conversation turns through the
-compiled graph with no network access: it monkeypatches the LLM factory
-at the point agents import it (`app.agents.base.get_llm`) and substitutes
-a fake supporting both plain and structured-output calls. This tests the
-real routing, reducers, and checkpointer behaviour — including that
-onboarding is idempotent — while keeping the suite fast and free.
+No code changes. `main.py`'s startup check knows the key variables for
+OpenAI and Anthropic; add your provider to `_KEY_VARS` for the same
+friendly missing-key message.
 
 ## Serving over HTTP
 
-The graph is transport-agnostic. A minimal Flask/FastAPI handler is:
+The graph is transport-agnostic. A minimal FastAPI handler:
 
 ```python
 graph = build_graph(checkpointer=my_durable_checkpointer)
 
-def chat_endpoint(session_id: str, text: str) -> dict:
+@app.post("/chat/{session_id}")
+async def chat(session_id: str, text: str) -> dict:
     config = {"configurable": {"thread_id": session_id}}
-    state = graph.invoke({"messages": [HumanMessage(content=text)]}, config)
-    return {"reply": state["messages"][-1].content}
+    state = await graph.ainvoke({"messages": [HumanMessage(content=text)]}, config)
+    return {"reply": state["messages"][-1].text}
 ```
 
 Derive `thread_id` from your authenticated session (hash it if it is a
-raw cookie value) and the checkpointer does the rest. For streaming
-responses, adapt the `run_turn` loop in `main.py` to yield SSE events.
+raw cookie value). For streaming responses, adapt `run_turn` in
+`main.py` to yield SSE events from `astream`.
 
 ## Requirements
 
-* Python 3.10+
-* Pinned majors: `langgraph 1.x`, `langchain-core 1.x`,
+* Python 3.10+ (CI covers 3.10, 3.12, 3.14)
+* Pinned majors: `langgraph 1.x`, `langchain 1.x`, `langchain-core 1.x`,
   `langchain-openai 1.x` (verified against langgraph 1.2.9).
 
 ## License

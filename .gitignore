@@ -8,7 +8,13 @@ dist/
 build/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 graph.png
+
+# SQLite session files (main.py --db)
+*.db
+*.db-shm
+*.db-wal
 
 # LangGraph CLI / Studio runtime artifacts
 .langgraph_api/
