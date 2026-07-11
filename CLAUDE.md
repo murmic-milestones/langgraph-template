@@ -28,7 +28,10 @@ langgraph dev             # LangGraph Studio
   state updates, sync gate methods route conditional edges. Agents are
   shared across sessions — keep them stateless.
 - `app/llm.py` — the only place a model is constructed
-  (`init_chat_model`, provider comes from `MODEL_NAME` env).
+  (`init_chat_model`, provider comes from `MODEL_NAME` env). Supported
+  providers (OpenAI, Anthropic, Gemini, Ollama) are defined in three
+  places that must stay in sync: `_PROVIDERS` in `main.py`, the extras
+  in `pyproject.toml`, and the table in `.env.example`/README.
 - `app/tools.py` — tool list for the chat ⇄ tools loop.
 - One graph run per chat turn; incomplete onboarding ends the run and
   the next invoke re-enters from START, so nodes must be idempotent.

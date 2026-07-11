@@ -2,9 +2,11 @@
 
 Centralising model construction means every agent picks up configuration
 from the environment, and switching providers is a *config* change, not a
-code change: ``init_chat_model`` resolves ``"provider:model"`` strings, so
-``MODEL_NAME=anthropic:claude-sonnet-5`` works as soon as the matching
-integration package (``langchain-anthropic``) is installed.
+code change: ``init_chat_model`` resolves ``"provider:model"`` strings
+(``openai:...``, ``anthropic:...``, ``google_genai:...``, ``ollama:...``)
+as soon as the matching integration package is installed — extras for
+each are defined in ``pyproject.toml``, and the supported-provider table
+lives in ``main.py`` (``_PROVIDERS``).
 
 Note: instances are cached, so changing ``MODEL_NAME`` mid-process has no
 effect — restart instead.

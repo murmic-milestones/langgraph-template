@@ -18,6 +18,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Model providers: OpenAI ships in the base dependencies (it is the
+# default); install extras for the others, e.g. pip install -e ".[anthropic]"
+# then set MODEL_NAME (see .env.example). The provider table lives in
+# main.py (_PROVIDERS) — add new providers there too.
+anthropic = ["langchain-anthropic>=1,<2"]
+google = ["langchain-google-genai>=4,<5"]
+ollama = ["langchain-ollama>=1,<2"]
 dev = [
     "pytest>=8",
     "ruff>=0.15",

@@ -225,22 +225,29 @@ comments. Removal never requires understanding the feature's internals.
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
 | interrupt() demo | `examples/`, `tests/test_examples.py` | delete both files |
 
-## Swapping model providers
+## Model providers
 
-```bash
-pip install langchain-anthropic          # or langchain-google-genai, ...
-```
+The model — including the provider — is just the `MODEL_NAME` env string
+(`provider:model`, resolved by `init_chat_model`). Four providers are
+supported out of the box:
 
-then in `.env`:
+| Provider | Install | `MODEL_NAME` example | Key |
+|---|---|---|---|
+| OpenAI | `pip install -e "."` (default) | `openai:gpt-4o-mini` | `OPENAI_API_KEY` |
+| Anthropic | `pip install -e ".[anthropic]"` | `anthropic:claude-sonnet-5` | `ANTHROPIC_API_KEY` |
+| Gemini | `pip install -e ".[google]"` | `google_genai:gemini-2.5-flash` | `GOOGLE_API_KEY` |
+| Ollama | `pip install -e ".[ollama]"` | `ollama:llama3.2` | none (local) |
 
-```
-MODEL_NAME=anthropic:claude-sonnet-5
-ANTHROPIC_API_KEY=sk-ant-...
-```
+No code changes to switch — install the extra, set `MODEL_NAME` and the
+key in `.env`. Ollama runs models locally: start the server (`ollama
+serve` or the desktop app) and pull the model (`ollama pull llama3.2`)
+first. Note that the greeter relies on structured output and the chat
+stage on tool calling, so pick an Ollama model that supports tools.
 
-No code changes. `main.py`'s startup check knows the key variables for
-OpenAI and Anthropic; add your provider to `_KEY_VARS` for the same
-friendly missing-key message.
+`main.py`'s startup check validates the provider package and key up
+front and prints install/config guidance instead of a traceback. To add
+another provider: one row in `_PROVIDERS` (`main.py`), one extra in
+`pyproject.toml`, one example line in `.env.example`.
 
 ## Serving over HTTP
 
