@@ -368,13 +368,19 @@ project:
 * **Hooks** make the two core habits deterministic: every file the AI
   writes is auto-formatted with ruff (PostToolUse), and the AI cannot
   declare itself done while `pytest` is red (Stop hook — affordable
-  because the fake-LLM suite runs in ~1s with no API key). Hook scripts
-  are Python for Windows/macOS/Linux parity.
+  because the fake-LLM suite runs in a few seconds with no API key).
+  Hook scripts are Python for Windows/macOS/Linux parity.
 * **Skills** (`.claude/skills/`) encode the four recipes — `add-stage`,
   `add-tool`, `add-provider`, `remove-feature` — so the sanctioned path
   is also the easiest one.
 * **`AGENTS.md`** points non-Claude tools at the same CLAUDE.md
   instructions.
+* **Comment anchors** — grep-able conventions in the source: `[tag]`
+  marks an optional feature's lines, `enforced by tests/...` marks a
+  contract with its invariant test, and `Customisation knob` marks
+  lines meant to be edited freely (e.g. the chat system prompt). Full
+  explanations live in exactly one place; everything else points to it.
+  Preserve and extend these markers when editing.
 
 Personal overrides go in `.claude/settings.local.json` (gitignored).
 

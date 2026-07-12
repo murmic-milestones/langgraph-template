@@ -188,15 +188,67 @@ update CLAUDE.md too** — future-you, teammates, and AI assistants all
 read it, and stale notes are worse than none. Same goes for the README
 if you change a pattern it describes.
 
+(There's a whole toolkit pre-wired for AI assistants — see the **Bonus**
+section below.)
+
 ### Step 9 — Level up (when you're ready)
 
 - **New onboarding step?** Copy `greeter.py` as a recipe: one node
   method that collects a fact, one gate method that checks it, two
   lines of wiring in `graph.py`.
 - **See inside the machine:** `langgraph dev` opens LangGraph Studio —
-  step through your graph node by node.
+  you *watch* each message travel the flowchart, pause at any node, and
+  peek inside the backpack at every stop. The best debugging tool here.
 - **Everything else** (streaming, providers, deployment, removing
   features you don't need) is in the [README](README.md).
+
+---
+
+## Bonus: building with an AI assistant 🤖🤝
+
+Using Claude Code (or another AI coding tool)? This project comes
+**pre-wired** for it, and every copy keeps the wiring:
+
+- **The AI reads the rulebook.** [CLAUDE.md](CLAUDE.md) tells it the
+  commands, the architecture, and the traps. Other tools find the same
+  rules via [AGENTS.md](AGENTS.md).
+- **It can verify without nagging you.** Safe commands (`pytest`,
+  `ruff`, `python main.py`) are pre-approved in
+  `.claude/settings.json` — and reading your `.env` secrets is blocked.
+- **Its code is auto-tidied.** A hook runs the formatter on every file
+  the AI writes. No messy robot code.
+- **It can't say "done" with broken tests.** Another hook runs `pytest`
+  whenever the AI tries to finish — red tests send it back to work.
+  (This is why the fast, free test suite matters so much.)
+- **It follows the recipes.** Ask for "add a tool" or "add an
+  onboarding stage" and it uses the step-by-step recipes in
+  `.claude/skills/` instead of improvising its own way.
+- **The architecture defends itself.** Special tests
+  (`tests/test_template_invariants.py`) check the *patterns*, not the
+  features. If the AI — or you — breaks a project rule, pytest says so
+  and names the rule. The fix is always: change the code, not the test.
+
+**Try it:** open the project in Claude Code and say *"add a coin-flip
+tool"*. Watch it follow the recipe, write a test, and run `pytest`
+before claiming victory.
+
+---
+
+## Your toolbox 🧰
+
+| Tool | What it gives you | How |
+|---|---|---|
+| **LangGraph Studio** | *Watch* your graph run — step node by node, inspect the backpack at each stop | `langgraph dev` |
+| **LangSmith** | A flight recorder: every run, prompt, and reply in a web UI (free tier). The answer to "why did it say *that*?" | uncomment the 3 `LANGSMITH_*` lines in `.env` |
+| **Lasting memory** | The bot remembers you tomorrow | `python main.py --db chat.db` |
+| **Graph picture** | A diagram of your flowchart | `python main.py --graph` → paste at [mermaid.live](https://mermaid.live) |
+| **LangGraph docs** | The full manual, for when you outgrow this file | [docs.langchain.com](https://docs.langchain.com/oss/python/langgraph/overview) |
+| **LangChain Academy** | Free structured courses on agents | [academy.langchain.com](https://academy.langchain.com) |
+| **Claude Code** | The AI assistant this project is pre-wired for | [claude.com/claude-code](https://claude.com/claude-code) |
+
+💸 **Before you experiment a lot:** set a monthly spending cap in your
+model provider's billing dashboard. Experiments are cheap; surprises
+aren't.
 
 ---
 
@@ -211,7 +263,8 @@ if you change a pattern it describes.
 | Checkpointer | Save slots per conversation | `build_graph(checkpointer=...)` |
 | Tools | The robot's hands | `app/tools.py` |
 | Tests | Your safety net (free + fast) | `tests/` — run `pytest` |
-| CLAUDE.md | Notes for AI helpers | keep it updated! |
+| CLAUDE.md | The AI helper's rulebook | keep it updated! |
+| .claude/ | Pre-wired AI guardrails | permissions, hooks, recipes |
 
 **The golden loop:** change one small thing → `python main.py` to feel
 it → `pytest` to prove it → update CLAUDE.md/README if behaviour
