@@ -29,11 +29,13 @@ langgraph-template/
 │   ├── test_environment.py # startup-check tests
 │   ├── test_llm.py         # model factory resolution/caching
 │   ├── test_template_invariants.py # architecture rules as tests
+│   ├── test_logging.py     # log levels, JSON format, PII rule
 │   ├── test_persistence.py # SQLite durability             [removable]
 │   ├── test_examples.py    # interrupt demo tests          [removable]
 │   └── test_agent_engine.py# Agent Engine adapter tests    [removable]
 └── app/
     ├── state.py            # typed state schema + reducers
+    ├── log.py              # logging config (the vendor seam)
     ├── llm.py              # provider-agnostic model factory
     ├── env.py              # provider registry + startup checks
     ├── graph.py            # graph assembly, retries, Studio entry point
@@ -84,7 +86,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 38 tests, no API key needed
+   pytest                          # 43 tests, no API key needed
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
    python examples/human_approval.py   # interrupt() demo
@@ -307,6 +309,30 @@ sibling batch-pipeline project):
 * **Keep stores lazy** (no directory creation or file reads in
   `__init__`) so the import-time `graph = build_graph()` stays
   side-effect free (see pattern 2).
+
+### 17. Logging
+
+Stdlib `logging` is the vendor-agnostic seam. Two rules, both enforced
+by tests:
+
+* **Libraries emit, drivers configure.** Every `app/` module does only
+  `logging.getLogger(__name__)` and emits at standard levels (DEBUG =
+  diagnostics, INFO = one line per lifecycle event, WARNING = degraded,
+  ERROR = failed). Handlers/formatters are set only by
+  `configure_logging()` in `app/log.py`, called from drivers
+  (`main.py`, an adapter's `set_up()`) — never at import. An invariant
+  test blocks config calls elsewhere.
+* **Conversation content and profile values are PII** — they never
+  appear in logs at any level (`test_no_conversation_content_in_logs`
+  drives a turn and greps every record). Log events and metadata
+  (durations, counts, `thread_id` via `extra=`), not text.
+
+Configure via env: `LOG_LEVEL` (default INFO) and `LOG_FORMAT=json`
+(one JSON object per line on stderr — extras like `thread_id`
+included). Swapping vendors is one line at the driver, zero changes in
+`app/`: any `logging.Handler` works — Sentry/Datadog handlers, syslog,
+or OpenTelemetry's `LoggingHandler` for OTLP export to any backend.
+(LangSmith covers LLM *tracing*; this is for application logs.)
 
 ## Optional features — how to add or remove
 

@@ -51,10 +51,14 @@ fake LLM); the deployment itself requires a GCP project — run one real
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+import time
 from typing import Any
 
 from langchain_core.messages import HumanMessage
+
+_logger = logging.getLogger(__name__)
 
 
 class AgentEngineApp:
@@ -80,6 +84,11 @@ class AgentEngineApp:
         from langgraph.checkpoint.memory import InMemorySaver
 
         from app.graph import build_graph
+        from app.log import configure_logging
+
+        # set_up is this deployment's driver — it owns log configuration.
+        # JSON lines on stderr are parsed natively by Cloud Logging.
+        configure_logging(json_format=True)
 
         # InMemorySaver = sessions survive within one container only.
         # For durable sessions use e.g. langchain-google-cloud-sql-pg:
@@ -93,9 +102,15 @@ class AgentEngineApp:
     ) -> dict[str, Any]:
         """One chat turn; returns a JSON-serialisable result."""
 
+        start = time.perf_counter()
         state = await self.graph.ainvoke(
             {"messages": [HumanMessage(content=message)]},
             {"configurable": {"thread_id": thread_id}},
+        )
+        _logger.info(
+            "query complete: duration_ms=%.0f",
+            (time.perf_counter() - start) * 1000,
+            extra={"thread_id": thread_id},
         )
         return {
             "reply": state["messages"][-1].text,

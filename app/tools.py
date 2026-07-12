@@ -14,15 +14,20 @@ To REMOVE tool calling from the template entirely:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from langchain_core.tools import tool
+
+_logger = logging.getLogger(__name__)
 
 
 @tool
 def get_current_time() -> str:
     """Return the current date and time in UTC (ISO-8601)."""
 
+    # Tools are actions — log each execution (INFO) for an audit trail.
+    _logger.info("tool executed: get_current_time")
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 

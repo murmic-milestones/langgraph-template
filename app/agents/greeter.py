@@ -16,11 +16,15 @@ collected so far, and completed stages pass straight through.
 
 from __future__ import annotations
 
+import logging
+
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel, Field
 
 from app.agents.base import BaseAgent
 from app.state import AppState
+
+_logger = logging.getLogger(__name__)
 
 _EXTRACTION_PROMPT = """\
 You are the onboarding step of an assistant. Scan the conversation and work
@@ -56,6 +60,7 @@ class GreeterAgent(BaseAgent):
 
         profile = state.get("profile", {})
         if profile.get("name"):
+            _logger.debug("name already collected — pass-through")
             return {}  # Already onboarded — pass straight through.
 
         result = await self.query_structured(
@@ -63,8 +68,14 @@ class GreeterAgent(BaseAgent):
         )
 
         if result.name:
+            # The value itself is PII — log the event, not the name.
+            _logger.info("user name collected")
             return {"profile": {**profile, "name": result.name}}
 
+        if not result.reply:
+            _logger.warning(
+                "model returned neither a name nor a question — using fallback"
+            )
         question = result.reply or "Hi! Before we start, what's your first name?"
         return {"messages": [AIMessage(content=question)]}
 

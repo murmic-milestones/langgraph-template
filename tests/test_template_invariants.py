@@ -70,6 +70,23 @@ def test_agents_never_import_provider_packages() -> None:
                 )
 
 
+def test_only_log_module_configures_logging() -> None:
+    """Libraries emit, drivers configure — app/ modules must not touch
+    handlers or logging config (that's app/log.py's job)."""
+
+    forbidden = {"basicConfig", "dictConfig", "fileConfig", "addHandler"}
+    for path in (ROOT / "app").rglob("*.py"):
+        if path.name == "log.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr in forbidden:
+                raise AssertionError(
+                    f"{path.relative_to(ROOT)} calls '{node.attr}' — only "
+                    "app/log.py configures logging (see CLAUDE.md)"
+                )
+
+
 def test_all_graph_nodes_are_async() -> None:
     """Sync nodes would raise at runtime (the graph runs via ainvoke only)."""
 

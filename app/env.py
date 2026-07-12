@@ -21,6 +21,7 @@ too.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import urllib.error
@@ -31,6 +32,8 @@ from dataclasses import dataclass
 from importlib.util import find_spec
 
 from app.llm import DEFAULT_MODEL
+
+_logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 
@@ -115,12 +118,18 @@ def check_environment(extra_model_vars: Iterable[str] = ()) -> None:
             validated alongside ``MODEL_NAME``.
     """
 
-    for model in sorted(configured_models(extra_model_vars)):
+    models = sorted(configured_models(extra_model_vars))
+    for model in models:
         provider_name = model.split(":", 1)[0] if ":" in model else "openai"
 
         provider = PROVIDERS.get(provider_name)
         if provider is None:
-            continue  # Unknown provider — let init_chat_model report it.
+            # Unknown provider — let init_chat_model report it.
+            _logger.warning(
+                "unknown provider '%s' — deferring validation to init_chat_model",
+                provider_name,
+            )
+            continue
 
         if find_spec(provider.package) is None:
             sys.exit(
@@ -136,3 +145,5 @@ def check_environment(extra_model_vars: Iterable[str] = ()) -> None:
             )
         if provider.preflight and (error := provider.preflight()):
             sys.exit(error)
+
+    _logger.info("environment ok: models=%s", ", ".join(models))

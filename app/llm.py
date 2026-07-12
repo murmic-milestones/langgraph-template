@@ -20,6 +20,7 @@ repeated calls with the same configuration reuse one instance.
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import cache
 
@@ -28,9 +29,13 @@ from langchain_core.language_models import BaseChatModel
 
 DEFAULT_MODEL = "openai:gpt-4o-mini"
 
+_logger = logging.getLogger(__name__)
+
 
 @cache
 def _build_llm(model: str, temperature: float) -> BaseChatModel:
+    # Fires once per (model, temperature) thanks to the cache.
+    _logger.info("initialising chat model %s (temperature=%s)", model, temperature)
     return init_chat_model(model, temperature=temperature)
 
 

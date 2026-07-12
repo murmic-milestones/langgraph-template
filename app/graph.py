@@ -34,6 +34,8 @@ output file, a client), make it lazy — initialise on first use, not in
 
 from __future__ import annotations
 
+import logging
+
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -44,6 +46,8 @@ from app.agents.chat import ChatAgent
 from app.agents.greeter import GreeterAgent
 from app.state import AppState
 from app.tools import TOOLS  # [tools]
+
+_logger = logging.getLogger(__name__)
 
 # Retry transient LLM/API failures with exponential backoff before
 # surfacing the error to the caller. Scope (langgraph's default_retry_on):
@@ -94,7 +98,9 @@ def build_graph(
     )
     builder.add_edge("tools", "chat")  # [tools]
 
-    return builder.compile(checkpointer=checkpointer)
+    compiled = builder.compile(checkpointer=checkpointer)
+    _logger.debug("graph compiled (checkpointer=%s)", type(checkpointer).__name__)
+    return compiled
 
 
 # Entry point for langgraph.json (Studio / `langgraph dev` / platform) —

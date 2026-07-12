@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
+import time
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
@@ -29,7 +31,10 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.env import check_environment
 from app.graph import build_graph
+from app.log import configure_logging
 from app.visualization import to_mermaid
+
+_logger = logging.getLogger(__name__)
 
 # Nodes whose LLM tokens are printed as they arrive. A new LLM-calling
 # node stays silent until added here; never add nodes that emit
@@ -48,6 +53,7 @@ async def run_turn(graph, config: dict, text: str) -> None:
     checkpointed state instead.
     """
 
+    start = time.perf_counter()
     print("\nAssistant: ", end="", flush=True)
     streamed = False
 
@@ -67,6 +73,12 @@ async def run_turn(graph, config: dict, text: str) -> None:
         print(state.values["messages"][-1].text, end="")
 
     print("\n")
+    _logger.info(
+        "turn complete: duration_ms=%.0f streamed=%s",
+        (time.perf_counter() - start) * 1000,
+        streamed,
+        extra={"thread_id": config["configurable"]["thread_id"]},
+    )
 
 
 async def chat_loop(graph) -> None:
@@ -83,7 +95,12 @@ async def chat_loop(graph) -> None:
         if not user_input:
             continue
 
-        await run_turn(graph, config, user_input)
+        try:
+            await run_turn(graph, config, user_input)
+        except Exception:
+            # Log the traceback, tell the user, keep the session alive.
+            _logger.exception("turn failed")
+            print("\n[error] That turn failed — details in the log. Try again.\n")
 
 
 async def amain(db_path: str | None) -> None:
@@ -106,6 +123,7 @@ async def amain(db_path: str | None) -> None:
 
 def main() -> None:
     load_dotenv()
+    configure_logging()  # drivers configure; app/ modules only emit
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

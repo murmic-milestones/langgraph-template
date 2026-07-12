@@ -17,11 +17,16 @@ Two optional features live here, each removable independently:
 
 from __future__ import annotations
 
+import logging
+import time
+
 from langchain_core.messages import SystemMessage, trim_messages
 
 from app.agents.base import BaseAgent
 from app.state import AppState
 from app.tools import TOOLS  # [tools]
+
+_logger = logging.getLogger(__name__)
 
 # [trim] Customisation knob — tune freely. Prompt window size, counted in
 # messages (not tokens). For token-based trimming, pass the model as
@@ -55,9 +60,18 @@ class ChatAgent(BaseAgent):
             max_tokens=MAX_HISTORY_MESSAGES,
             start_on="human",
         )
+        _logger.debug(
+            "prompt window: %d of %d messages", len(recent), len(state["messages"])
+        )
 
+        start = time.perf_counter()
         llm = self.llm.bind_tools(TOOLS)  # [tools]
         reply = await llm.ainvoke(
             [SystemMessage(content=_SYSTEM_PROMPT.format(name=name)), *recent]
+        )
+        _logger.info(
+            "chat reply generated: duration_ms=%.0f tool_calls=%d",
+            (time.perf_counter() - start) * 1000,
+            len(getattr(reply, "tool_calls", []) or []),
         )
         return {"messages": [reply]}

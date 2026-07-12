@@ -32,8 +32,10 @@ run one real call against your provider before trusting a new one.
 from __future__ import annotations
 
 import base64
+import logging
 import mimetypes
 import os
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeVar
@@ -46,6 +48,8 @@ from pydantic import BaseModel
 # via self.llm so the fake keeps working — enforced by
 # tests/test_template_invariants.py (test_agents_never_import_provider_packages).
 from app.llm import get_llm
+
+_logger = logging.getLogger(__name__)
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
@@ -115,10 +119,22 @@ class BaseAgent:
     ) -> SchemaT:
         """Run the conversation through the LLM, returning a validated model."""
 
+        _logger.debug(
+            "structured call starting: schema=%s messages=%d",
+            schema.__name__,
+            len(messages),
+        )
+        start = time.perf_counter()
         structured_llm = self.llm.with_structured_output(schema)
-        return await structured_llm.ainvoke(
+        result = await structured_llm.ainvoke(
             [SystemMessage(content=system_prompt), *messages]
         )
+        _logger.info(
+            "structured call ok: schema=%s duration_ms=%.0f",
+            schema.__name__,
+            (time.perf_counter() - start) * 1000,
+        )
+        return result
 
     async def query_image_structured(
         self,

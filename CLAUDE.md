@@ -29,6 +29,15 @@ langgraph dev             # LangGraph Studio
   shared across sessions — keep them stateless. Per-agent model
   overrides via `BaseAgent(model_env="MY_STAGE_MODEL")`; image input via
   `image_message()` / `query_image_structured()` in `base.py`.
+- `app/log.py` — the only module that configures logging (enforced by
+  an invariant test). `app/` modules just do
+  `logging.getLogger(__name__)` and emit; drivers call
+  `configure_logging()` (env: `LOG_LEVEL`, `LOG_FORMAT=text|json`).
+  Levels: DEBUG diagnostics, INFO one line per lifecycle event,
+  WARNING degraded, ERROR failed. Conversation content and profile
+  values are PII — never log them at any level (enforced by
+  `test_no_conversation_content_in_logs`); log events + metadata
+  (durations, counts, `thread_id` via `extra=`).
 - `app/llm.py` — the only place a model is constructed
   (`init_chat_model`, provider comes from `MODEL_NAME` env, explicit
   `model=` arg for per-agent overrides).
