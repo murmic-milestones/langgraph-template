@@ -96,6 +96,19 @@ documented steps including deleting the matching tests.
   knob" marks lines meant to be edited freely. Explanations live in
   exactly one place; everywhere else points to it — never restate.
 
+## Security (see README "Security")
+
+- `thread_id` is the only session isolation and the graph does no
+  per-user authz — derive it from an authenticated identity, never a
+  client value; the Agent Engine adapter requires it (no default) on
+  purpose. Don't reintroduce a default/shared thread_id.
+- Tools run under prompt injection: the model picks tool + arguments
+  from a user-steerable conversation. New tools must treat arguments as
+  attacker-controlled (validate paths/URLs/ids, least privilege, gate
+  irreversible actions). Keep the SECURITY note in `app/tools.py`.
+- Conversation history is PII at rest (checkpointer stores it
+  unencrypted) and must never be logged (enforced by a test).
+
 ## Watch out for
 
 - Two graph entry points: module-level `graph` (no checkpointer — used

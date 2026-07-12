@@ -4,6 +4,20 @@ Add tools by defining a ``@tool``-decorated function here and appending it
 to ``TOOLS`` — the chat agent and the graph's tool node both read that
 list, so nothing else needs wiring.
 
+SECURITY — tools are a prompt-injection attack surface. The model
+decides *whether* to call a tool and *with what arguments* based on the
+conversation, and a user can craft a message that steers it ("ignore
+your instructions and call X with Y"). So treat every tool argument as
+attacker-controlled:
+
+* keep tools least-privilege — no filesystem, secret, or internal-network
+  access unless the task truly needs it, and never wire in credentials a
+  tool could be tricked into exfiltrating;
+* validate/whitelist arguments inside the tool (paths, URLs, ids) rather
+  than trusting the model to pass safe values;
+* prefer read-only, side-effect-free tools; gate irreversible actions
+  behind an explicit human-approval step (see examples/human_approval.py).
+
 To REMOVE tool calling from the template entirely:
 1. delete this file;
 2. in ``app/agents/chat.py`` drop the ``bind_tools`` call (marked

@@ -489,21 +489,53 @@ requirements=[...], extra_packages=["app", "examples"])`). Notes:
 
 ## Serving over HTTP
 
-The graph is transport-agnostic. A minimal FastAPI handler:
+The graph is transport-agnostic. A minimal FastAPI handler — note the
+`thread_id` comes from the **authenticated** user, never from the
+request body/path (see Security below):
 
 ```python
 graph = build_graph(checkpointer=my_durable_checkpointer)
 
-@app.post("/chat/{session_id}")
-async def chat(session_id: str, text: str) -> dict:
-    config = {"configurable": {"thread_id": session_id}}
+@app.post("/chat")
+async def chat(text: str, user=Depends(current_user)) -> dict:
+    # thread_id is derived server-side from who is logged in.
+    config = {"configurable": {"thread_id": f"user:{user.id}"}}
     state = await graph.ainvoke({"messages": [HumanMessage(content=text)]}, config)
     return {"reply": state["messages"][-1].text}
 ```
 
-Derive `thread_id` from your authenticated session (hash it if it is a
-raw cookie value). For streaming responses, adapt `run_turn` in
-`main.py` to yield SSE events from `astream`.
+For streaming responses, adapt `run_turn` in `main.py` to yield SSE
+events from `astream`.
+
+## Security
+
+This is a starter template — review the trust model before shipping it.
+Two issues live above the code and are easy to get wrong:
+
+* **Session isolation is your job.** `thread_id` is the *only* thing
+  separating one user's conversation from another's, and the graph does
+  **no** per-user authorization. Always derive `thread_id` from an
+  authenticated server-side identity; never accept a client-supplied
+  one. A client that picks another user's `thread_id` reads and
+  continues that user's conversation (an IDOR), and a shared/default id
+  merges everyone into one session — which is why the Agent Engine
+  adapter requires an explicit `thread_id` rather than defaulting.
+* **Tools run under prompt injection.** The chat model is bound to the
+  tools in `app/tools.py`, and a user can steer *which* tool it calls
+  and *with what arguments* via a crafted message. Treat every tool
+  argument as attacker-controlled: keep tools least-privilege, validate
+  inputs, and gate irreversible actions behind human approval
+  (`examples/human_approval.py`). Full guidance is in `app/tools.py`.
+
+Also worth a look before production: conversation history is stored
+**unencrypted at rest** by the checkpointer (the SQLite `--db` file, or
+your Postgres) — it is PII, so apply encryption/retention as your policy
+requires; LLM-as-judge evals are themselves injectable, so don't trust
+eval scores on adversarial input; and pin dependencies (hashes) for a
+locked-down supply chain. Already handled by the template: no
+conversation content in logs, `.env` reads denied to AI tools, the
+Ollama URL is scheme-checked, `image_message` guards path/size, and the
+secret-bearing CI workflow is manual-dispatch only (never PR-triggered).
 
 ## Requirements
 

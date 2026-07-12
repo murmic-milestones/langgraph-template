@@ -12,7 +12,12 @@ Add a tool the model can call during chat. `get_current_time` in
    - the **docstring is the model's documentation** — state what it
      does, its parameters, and what it returns, precisely;
    - type-hint every parameter; return JSON-serialisable values;
-   - never let it touch user-controlled paths/URLs without validation.
+   - **security**: the model chooses the arguments from a conversation a
+     user can steer via prompt injection — treat every argument as
+     attacker-controlled. Validate/whitelist paths, URLs, and ids inside
+     the tool; keep it least-privilege (no secrets, filesystem, or
+     internal network unless essential); gate irreversible actions
+     behind human approval. See the SECURITY note in `app/tools.py`.
 2. **Register it**: append to the `TOOLS` list. Nothing else needs
    wiring — the chat agent and the graph's `ToolNode` both read `TOOLS`.
 3. **Test**: copy `test_tool_calling_loop` in `tests/test_graph.py` —

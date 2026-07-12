@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 import pickle
 
+import pytest
+
 from app.agents.greeter import NameCheck
 from examples.agent_engine_app import AgentEngineApp
 
@@ -53,6 +55,16 @@ def test_query_round_trip_is_json_serialisable(fake) -> None:
     assert result["reply"] == "Hello Paul!"
     assert result["profile"]["name"] == "Paul"
     json.dumps(result)  # platform requires JSON-serialisable output
+
+
+def test_blank_thread_id_is_rejected(fake) -> None:
+    """No shared-default session: an empty thread_id must be refused."""
+
+    app = AgentEngineApp()
+    app.set_up()
+    for bad in ("", "   "):
+        with pytest.raises(ValueError, match="thread_id is required"):
+            app.query(message="hi", thread_id=bad)
 
 
 def test_threads_are_isolated_per_conversation(fake) -> None:

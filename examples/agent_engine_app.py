@@ -18,9 +18,13 @@ checkpointer, and the model comes from the ``MODEL_NAME`` env variable
 concern and is deliberately not called here.
 
 Sessions: the platform passes/derives a thread id per conversation; we
-map it straight onto the checkpointer's ``thread_id``. The default
-``InMemorySaver`` keeps sessions per-container only — swap in a durable
-saver for real deployments (commented below).
+map it straight onto the checkpointer's ``thread_id``. ``thread_id`` is
+**required** — it is the only isolation between users' conversations,
+and this graph does no per-user authorization, so derive it from the
+authenticated caller and never accept another user's id (see the
+security note on ``async_query``). The default ``InMemorySaver`` keeps
+sessions per-container only — swap in a durable saver for real
+deployments (commented below).
 
 Deploy (needs ``pip install -e ".[vertexai]"`` and
 ``gcloud auth application-default login``)::
@@ -102,10 +106,20 @@ class AgentEngineApp:
         #   saver = PostgresSaver.create_sync(engine)
         self.graph = build_graph(checkpointer=InMemorySaver())
 
-    async def async_query(
-        self, *, message: str, thread_id: str = "default"
-    ) -> dict[str, Any]:
-        """One chat turn; returns a JSON-serialisable result."""
+    async def async_query(self, *, message: str, thread_id: str) -> dict[str, Any]:
+        """One chat turn; returns a JSON-serialisable result.
+
+        SECURITY: ``thread_id`` is the *only* thing isolating one user's
+        conversation from another's, and this graph does no per-user
+        authorization. It is required (no default) on purpose — a shared
+        default would merge every caller's history into one session.
+        Derive it from the authenticated caller server-side; never let a
+        client choose another user's thread_id, or it can read and
+        continue that user's conversation.
+        """
+
+        if not thread_id or not thread_id.strip():
+            raise ValueError("thread_id is required (see the security note)")
 
         start = time.perf_counter()
         state = await self.graph.ainvoke(
@@ -122,7 +136,7 @@ class AgentEngineApp:
             "profile": dict(state.get("profile", {})),
         }
 
-    def query(self, *, message: str, thread_id: str = "default") -> dict[str, Any]:
+    def query(self, *, message: str, thread_id: str) -> dict[str, Any]:
         """Sync entry point required by the platform.
 
         The platform calls this outside any event loop, so bridging the
