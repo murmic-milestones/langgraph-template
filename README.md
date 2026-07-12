@@ -16,6 +16,8 @@ langgraph-template/
 ├── LICENSE                 # 0BSD — permissive, no attribution required
 ├── .env.example            # copy to .env and fill in
 ├── .github/workflows/ci.yml# lint + format + tests on 3.10/3.12/3.14
+├── AGENTS.md               # entry point for AI coding tools -> CLAUDE.md
+├── .claude/                # AI-tooling config: permissions, hooks, skills
 ├── examples/
 │   ├── human_approval.py   # standalone interrupt() demo   [removable]
 │   └── agent_engine_app.py # Google Agent Engine adapter   [removable]
@@ -26,6 +28,7 @@ langgraph-template/
 │   ├── test_agents_base.py # BaseAgent helpers (models, image input)
 │   ├── test_environment.py # startup-check tests
 │   ├── test_llm.py         # model factory resolution/caching
+│   ├── test_template_invariants.py # architecture rules as tests
 │   ├── test_persistence.py # SQLite durability             [removable]
 │   ├── test_examples.py    # interrupt demo tests          [removable]
 │   └── test_agent_engine.py# Agent Engine adapter tests    [removable]
@@ -81,7 +84,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 34 tests, no API key needed
+   pytest                          # 38 tests, no API key needed
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
    python examples/human_approval.py   # interrupt() demo
@@ -346,6 +349,34 @@ checks like pinging the local Ollama server. Call it from any driver you
 write, not just the CLI. To add another provider: one `Provider` row in
 `app/env.py`, one extra in `pyproject.toml`, one example line in
 `.env.example`.
+
+## Working with AI coding tools
+
+The template ships configured for AI-assisted development (Claude Code
+and compatible tools), and the configuration copies into every derived
+project:
+
+* **Invariant tests** (`tests/test_template_invariants.py`) encode the
+  architecture rules — providers synced across config files, agents
+  using the `get_llm` seam, async nodes / sync gates — so violating a
+  pattern fails `pytest` instead of slipping through review. Fix the
+  code, not the test.
+* **`.claude/settings.json`** (committed) pre-approves the safe
+  verification commands (`pytest`, `ruff`, `python main.py`,
+  `langgraph dev`) and denies reading `.env` — the AI can run the
+  verify loop without permission prompts and without your secrets.
+* **Hooks** make the two core habits deterministic: every file the AI
+  writes is auto-formatted with ruff (PostToolUse), and the AI cannot
+  declare itself done while `pytest` is red (Stop hook — affordable
+  because the fake-LLM suite runs in ~1s with no API key). Hook scripts
+  are Python for Windows/macOS/Linux parity.
+* **Skills** (`.claude/skills/`) encode the four recipes — `add-stage`,
+  `add-tool`, `add-provider`, `remove-feature` — so the sanctioned path
+  is also the easiest one.
+* **`AGENTS.md`** points non-Claude tools at the same CLAUDE.md
+  instructions.
+
+Personal overrides go in `.claude/settings.local.json` (gitignored).
 
 ## Deploying to Google Agent Engine (Gemini Enterprise Agent Platform)
 

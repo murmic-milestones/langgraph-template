@@ -18,3 +18,6 @@ graph.png
 
 # LangGraph CLI / Studio runtime artifacts
 .langgraph_api/
+
+# Personal Claude Code overrides (the committed .claude/settings.json is shared)
+.claude/settings.local.json

@@ -55,6 +55,24 @@ editing near a marked block, preserve the tag comments and keep the
 feature removable; when asked to remove a feature, follow its
 documented steps including deleting the matching tests.
 
+## AI-tooling layer (ships with the template)
+
+- `tests/test_template_invariants.py` encodes the architecture rules
+  (provider sync, the `get_llm` seam, async nodes / sync gates). When
+  one fails, fix the code to match the pattern — only change the test
+  if the pattern itself is deliberately changing, with docs updated in
+  the same commit.
+- `.claude/settings.json` is committed team config (permissions +
+  hooks); personal overrides belong in `.claude/settings.local.json`.
+- Hooks: every Python file you write is ruff-formatted automatically
+  (PostToolUse), and a Stop hook blocks finishing while `pytest` is
+  red. Keep hook scripts pure Python and ASCII-output (Windows parity),
+  and keep the suite fast and API-key-free or the Stop hook becomes
+  unaffordable.
+- Recipes for recurring work live in `.claude/skills/` (`add-stage`,
+  `add-tool`, `add-provider`, `remove-feature`) — follow them rather
+  than improvising, and update them when the recipe changes.
+
 ## Watch out for
 
 - Two graph entry points: module-level `graph` (no checkpointer — used
