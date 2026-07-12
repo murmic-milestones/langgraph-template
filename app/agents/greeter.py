@@ -36,12 +36,27 @@ asking for their first name.
 """
 
 
+def _plausible_name(value: str) -> bool:
+    """Reject values that are clearly not a name.
+
+    Smaller models sometimes echo their follow-up question into the
+    ``name`` field (found by the extraction eval running against a
+    local Ollama model). A real first name is short and contains no
+    question mark.
+    """
+
+    return bool(value) and "?" not in value and len(value.split()) <= 4
+
+
 class NameCheck(BaseModel):
     """Structured result of scanning the conversation for the user's name."""
 
     name: str | None = Field(
         default=None,
-        description="The user's first name if they have stated it, else null.",
+        description=(
+            "The user's first name if they have stated it, else null. "
+            "Never put a question or sentence here."
+        ),
     )
     reply: str = Field(
         default="",
@@ -67,10 +82,14 @@ class GreeterAgent(BaseAgent):
             _EXTRACTION_PROMPT, state["messages"], NameCheck
         )
 
-        if result.name:
+        name = (result.name or "").strip()
+        if name and not _plausible_name(name):
+            _logger.warning("discarding implausible extracted name")
+            name = ""
+        if name:
             # The value itself is PII — log the event, not the name.
             _logger.info("user name collected")
-            return {"profile": {**profile, "name": result.name}}
+            return {"profile": {**profile, "name": name}}
 
         if not result.reply:
             _logger.warning(

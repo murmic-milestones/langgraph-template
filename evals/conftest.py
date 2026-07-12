@@ -38,6 +38,21 @@ def pytest_report_header(config) -> str:
     return "evals: REAL model calls — these cost money and can flake"
 
 
+@pytest.fixture(autouse=True)
+def fresh_model_client():
+    """Give every eval a fresh model client in its own event loop.
+
+    Each eval drives the graph via its own ``asyncio.run()``, but cached
+    model instances hold async HTTP clients bound to the loop they first
+    ran in — reusing one from a closed loop raises "Event loop is
+    closed". Discovered the first time the evals ran for real.
+    """
+
+    from app.llm import reset_llm_cache
+
+    reset_llm_cache()
+
+
 def pytest_collection_modifyitems(config, items) -> None:
     reason = _missing_key_reason()
     if reason:

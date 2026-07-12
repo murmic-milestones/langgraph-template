@@ -50,3 +50,16 @@ def get_llm(temperature: float = 0.3, model: str | None = None) -> BaseChatModel
     """
 
     return _build_llm(model or os.getenv("MODEL_NAME", DEFAULT_MODEL), temperature)
+
+
+def reset_llm_cache() -> None:
+    """Drop all cached model instances.
+
+    Needed wherever consecutive ``asyncio.run()`` calls share a process
+    (the evals): a cached instance's async HTTP client stays bound to
+    the event loop it first used, and using it from a later loop raises
+    "Event loop is closed". Long-lived servers with one loop never need
+    this.
+    """
+
+    _build_llm.cache_clear()

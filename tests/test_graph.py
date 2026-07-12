@@ -83,6 +83,19 @@ def test_message_history_accumulates_in_order(fake) -> None:
     ]
 
 
+def test_implausible_extracted_name_is_discarded(fake) -> None:
+    """A question echoed into the name field must not become the name."""
+
+    graph = build_graph(checkpointer=InMemorySaver())
+    fake.structured_results[NameCheck] = NameCheck(
+        name="Hi there! What's your first name?", reply=""
+    )
+    state = run(graph.ainvoke({"messages": [HumanMessage(content="hi")]}, config("g")))
+
+    assert not state.get("profile", {}).get("name")
+    assert state["messages"][-1].content  # asked a question instead
+
+
 def test_greeter_fallback_question(fake) -> None:
     """An empty structured reply falls back to the canned question."""
 
