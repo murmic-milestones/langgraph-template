@@ -140,9 +140,19 @@ class AgentEngineApp:
         """Sync entry point required by the platform.
 
         The platform calls this outside any event loop, so bridging the
-        async graph with ``asyncio.run`` is safe here.
+        async graph with ``asyncio.run`` is safe here — but each call
+        runs in a *fresh* loop, and cached model instances keep an async
+        HTTP client bound to the loop that first used them (see
+        ``app.llm.reset_llm_cache``). Dropping the cache first keeps a
+        second sync call from failing with "Event loop is closed"; the
+        cost is re-initialising the model per call, which only the sync
+        path pays — ``async_query`` under one long-lived loop keeps the
+        cache.
         """
 
+        from app.llm import reset_llm_cache
+
+        reset_llm_cache()
         return asyncio.run(self.async_query(message=message, thread_id=thread_id))
 
     def register_operations(self) -> dict[str, list[str]]:

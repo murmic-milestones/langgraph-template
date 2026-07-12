@@ -56,10 +56,10 @@ def reset_llm_cache() -> None:
     """Drop all cached model instances.
 
     Needed wherever consecutive ``asyncio.run()`` calls share a process
-    (the evals): a cached instance's async HTTP client stays bound to
-    the event loop it first used, and using it from a later loop raises
-    "Event loop is closed". Long-lived servers with one loop never need
-    this.
+    (the evals, the Agent Engine adapter's sync ``query()``): a cached
+    instance's async HTTP client stays bound to the event loop it first
+    used, and using it from a later loop raises "Event loop is closed".
+    Long-lived servers with one loop never need this.
     """
 
     _build_llm.cache_clear()

@@ -57,6 +57,26 @@ def test_query_round_trip_is_json_serialisable(fake) -> None:
     json.dumps(result)  # platform requires JSON-serialisable output
 
 
+def test_sync_query_drops_cached_models_between_loops(fake, monkeypatch) -> None:
+    """query() bridges with asyncio.run, i.e. a fresh event loop per call;
+    a model instance cached from an earlier loop would raise "Event loop
+    is closed" (see app.llm.reset_llm_cache). The fake LLM has no HTTP
+    client to trip over, so assert the cache reset itself.
+    """
+
+    import app.llm
+
+    resets: list[bool] = []
+    monkeypatch.setattr(app.llm, "reset_llm_cache", lambda: resets.append(True))
+
+    engine = AgentEngineApp()
+    engine.set_up()
+    fake.structured_results[NameCheck] = NameCheck(name=None, reply="Who are you?")
+    engine.query(message="hello", thread_id="loop-test")
+
+    assert resets, "query() must reset_llm_cache() before entering a new loop"
+
+
 def test_blank_thread_id_is_rejected(fake) -> None:
     """No shared-default session: an empty thread_id must be refused."""
 

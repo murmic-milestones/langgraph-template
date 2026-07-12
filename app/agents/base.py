@@ -71,12 +71,15 @@ def image_message(text: str, image_path: str | Path) -> HumanMessage:
     """
 
     path = Path(image_path)
-    raw = path.read_bytes()
-    if len(raw) > MAX_IMAGE_BYTES:
+    # Check the size from stat before reading: the guard exists to keep a
+    # runaway file out of memory, so it must fire without loading it.
+    size = path.stat().st_size
+    if size > MAX_IMAGE_BYTES:
         raise ValueError(
-            f"{path} is {len(raw)} bytes; refusing to embed more than "
+            f"{path} is {size} bytes; refusing to embed more than "
             f"{MAX_IMAGE_BYTES} (see MAX_IMAGE_BYTES)"
         )
+    raw = path.read_bytes()
     mime_type = mimetypes.guess_type(path.name)[0] or "image/jpeg"
     data = base64.b64encode(raw).decode("ascii")
     return HumanMessage(

@@ -26,10 +26,20 @@ def test_image_message_builds_base64_block(tmp_path) -> None:
     assert base64.b64decode(image_block["data"]) == FAKE_JPEG
 
 
-def test_image_message_rejects_oversized_files(tmp_path, monkeypatch) -> None:
+def test_image_message_rejects_oversized_files_without_reading(
+    tmp_path, monkeypatch
+) -> None:
+    """The size guard exists to keep runaway files out of memory, so it
+    must fire from stat() alone — reading the file first would defeat it."""
+
     monkeypatch.setattr(base, "MAX_IMAGE_BYTES", 10)
     image = tmp_path / "big.png"
     image.write_bytes(b"x" * 11)
+    monkeypatch.setattr(
+        base.Path,
+        "read_bytes",
+        lambda self: pytest.fail("oversized file was read into memory"),
+    )
 
     with pytest.raises(ValueError, match="refusing to embed"):
         image_message("describe this", image)

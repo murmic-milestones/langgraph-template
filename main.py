@@ -23,13 +23,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import sys
 import time
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from app.env import check_environment
+from app.env import EnvironmentCheckError, check_environment
 from app.graph import build_graph
 from app.log import configure_logging
 from app.visualization import to_mermaid
@@ -50,7 +51,10 @@ async def run_turn(graph, config: dict, text: str) -> None:
     (raw JSON deltas) and tool traffic, which are not user-facing — so
     ``STREAMING_NODES`` whitelists what reaches the console. Turns that
     end in a non-streaming node print the final message from the
-    checkpointed state instead.
+    checkpointed state instead — which assumes every turn ends with a
+    user-facing message. A new node that can end a turn on a tool or
+    structured-output message would print that raw; give such turns a
+    user-facing closing message instead.
     """
 
     start = time.perf_counter()
@@ -138,7 +142,12 @@ def main() -> None:
         print(to_mermaid(build_graph()))
         return
 
-    check_environment()
+    # check_environment raises so each driver picks its reaction; for the
+    # CLI that is a clean exit with the fix-it message, no traceback.
+    try:
+        check_environment()
+    except EnvironmentCheckError as error:
+        sys.exit(str(error))
     asyncio.run(amain(args.db))
 
 

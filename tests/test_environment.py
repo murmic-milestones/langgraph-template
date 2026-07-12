@@ -20,17 +20,17 @@ def clean_env(monkeypatch):
     monkeypatch.setattr(env, "find_spec", lambda name: object())
 
 
-def test_missing_key_exits_with_guidance(monkeypatch):
+def test_missing_key_fails_with_guidance(monkeypatch):
     monkeypatch.setenv("MODEL_NAME", "openai:gpt-4o-mini")
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(env.EnvironmentCheckError) as exc:
         env.check_environment()
     assert "OPENAI_API_KEY" in str(exc.value)
 
 
-def test_missing_provider_package_exits_with_install_hint(monkeypatch):
+def test_missing_provider_package_fails_with_install_hint(monkeypatch):
     monkeypatch.setenv("MODEL_NAME", "anthropic:claude-sonnet-5")
     monkeypatch.setattr(env, "find_spec", lambda name: None)
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(env.EnvironmentCheckError) as exc:
         env.check_environment()
     assert "langchain-anthropic" in str(exc.value)
     assert ".[anthropic]" in str(exc.value)
@@ -42,10 +42,10 @@ def test_ollama_needs_no_api_key(monkeypatch):
     env.check_environment()  # must not raise
 
 
-def test_failing_preflight_exits_with_its_message(monkeypatch):
+def test_failing_preflight_fails_with_its_message(monkeypatch):
     monkeypatch.setenv("MODEL_NAME", "ollama:llama3.2")
     monkeypatch.setattr(env, "_ollama_preflight", lambda: "server down: hint")
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(env.EnvironmentCheckError) as exc:
         env.check_environment()
     assert "server down: hint" in str(exc.value)
 
@@ -59,11 +59,29 @@ def test_ollama_preflight_rejects_non_http_urls(monkeypatch):
     assert "http(s)" in error
 
 
-def test_bare_model_name_is_treated_as_openai(monkeypatch):
+def test_bare_model_name_provider_is_inferred(monkeypatch):
+    """Bare names must be checked against the provider init_chat_model
+    will actually resolve them to — not blindly assumed to be OpenAI."""
+
     monkeypatch.setenv("MODEL_NAME", "gpt-4o-mini")
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(env.EnvironmentCheckError) as exc:
         env.check_environment()
     assert "OPENAI_API_KEY" in str(exc.value)
+
+    monkeypatch.setenv("MODEL_NAME", "claude-sonnet-5")
+    with pytest.raises(env.EnvironmentCheckError) as exc:
+        env.check_environment()
+    assert "ANTHROPIC_API_KEY" in str(exc.value)
+
+
+def test_uninferrable_bare_model_name_fails_with_guidance(monkeypatch):
+    """init_chat_model would raise on this anyway — fail at startup with
+    a pointer to the provider:model form instead."""
+
+    monkeypatch.setenv("MODEL_NAME", "mystery-model-9000")
+    with pytest.raises(env.EnvironmentCheckError) as exc:
+        env.check_environment()
+    assert "provider:model" in str(exc.value)
 
 
 def test_configured_provider_passes(monkeypatch):
@@ -83,6 +101,6 @@ def test_extra_model_vars_are_checked_too(monkeypatch):
     monkeypatch.setenv("MODEL_NAME", "openai:gpt-4o-mini")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("SUMMARISER_MODEL", "anthropic:claude-sonnet-5")
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(env.EnvironmentCheckError) as exc:
         env.check_environment(extra_model_vars=("SUMMARISER_MODEL",))
     assert "ANTHROPIC_API_KEY" in str(exc.value)

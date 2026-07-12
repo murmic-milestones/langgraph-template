@@ -58,12 +58,16 @@ class JsonFormatter(logging.Formatter):
     logger, message, then any ``extra={...}`` keys (e.g. ``thread_id``).
     """
 
+    # Name of the JSON field carrying the log level — subclasses override
+    # it for collectors that key on a different field (GcpJsonFormatter).
+    level_key = "level"
+
     def format(self, record: logging.LogRecord) -> str:
         entry: dict = {
             "time": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(
                 timespec="milliseconds"
             ),
-            "level": record.levelname,
+            self.level_key: record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
         }
@@ -94,10 +98,7 @@ class GcpJsonFormatter(JsonFormatter):
     the same ``handlers=`` seam instead — see the README recipe.)
     """
 
-    def format(self, record: logging.LogRecord) -> str:
-        entry = json.loads(super().format(record))
-        entry["severity"] = entry.pop("level")
-        return json.dumps(entry, default=str)
+    level_key = "severity"
 
 
 def configure_logging(

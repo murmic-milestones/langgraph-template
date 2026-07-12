@@ -87,7 +87,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 45 tests, no API key needed
+   pytest                          # 48 tests, no API key needed
    pytest evals                    # model-quality evals (REAL calls, costs money)
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
@@ -421,8 +421,13 @@ stage on tool calling, so pick an Ollama model that supports tools.
 (the `MODEL_NAME` default plus any per-agent override variables you pass
 via `extra_model_vars`) before the first run: provider package present,
 API key set, and — where the provider row defines a `preflight` — extra
-checks like pinging the local Ollama server. Call it from any driver you
-write, not just the CLI. To add another provider: one `Provider` row in
+checks like pinging the local Ollama server. A bare model name (no
+`provider:` prefix) is checked against the provider `init_chat_model`
+will actually infer for it (`gpt-*` → OpenAI, `claude-*` → Anthropic,
+…). Call it from any driver you write, not just the CLI; failures raise
+`EnvironmentCheckError` with a fix-it message, and each driver picks its
+reaction — `main.py` turns it into a clean exit, a server should log it
+and refuse to start. To add another provider: one `Provider` row in
 `app/env.py`, one extra in `pyproject.toml`, one example line in
 `.env.example`.
 
@@ -483,6 +488,10 @@ requirements=[...], extra_packages=["app", "examples"])`). Notes:
   comment in `set_up()`).
 * On the platform, prefer `google_vertexai:...` models — they
   authenticate via the runtime's service account, no API key to manage.
+* The sync `query()` entry point runs `asyncio.run` per call, so it
+  resets the model cache each time (a cached model's HTTP client stays
+  bound to the loop that created it — see `reset_llm_cache`); the async
+  path keeps the cache and is the one to prefer under load.
 * The adapter's local contract (pickling, set_up, query round-trip) is
   covered by `tests/test_agent_engine.py` with the fake LLM; validate a
   real deployment with one `remote.query(...)` call.

@@ -45,9 +45,12 @@ langgraph dev             # LangGraph Studio
 - `app/env.py` — provider registry (`PROVIDERS`, with optional
   `preflight` checks like the Ollama server ping) and
   `check_environment(extra_model_vars=...)`, which every driver should
-  call at startup. Providers are defined in three places that must stay
-  in sync: `PROVIDERS` here, the extras in `pyproject.toml`, and the
-  table in `.env.example`/README.
+  call at startup. Failures raise `EnvironmentCheckError` (never
+  `sys.exit` — drivers decide; `main.py` translates it to a clean
+  exit). Bare model names are checked against the provider
+  `init_chat_model` infers, not assumed to be OpenAI. Providers are
+  defined in three places that must stay in sync: `PROVIDERS` here, the
+  extras in `pyproject.toml`, and the table in `.env.example`/README.
 - `app/tools.py` — tool list for the chat ⇄ tools loop.
 - One graph run per chat turn; incomplete onboarding ends the run and
   the next invoke re-enters from START, so nodes must be idempotent.
@@ -136,7 +139,11 @@ documented steps including deleting the matching tests.
   servers — stub `find_spec` and preflights (see test_environment.py).
 - `get_llm` re-reads the env on every call and caches instances per
   resolved (model, temperature) pair — `MODEL_NAME` and per-agent
-  override variables have identical semantics.
+  override variables have identical semantics. A cached instance's
+  async HTTP client stays bound to the event loop that first used it,
+  so any code path doing consecutive `asyncio.run()` calls in one
+  process must call `reset_llm_cache()` between them (the evals and
+  the Agent Engine adapter's sync `query()` both do).
 - Trimming affects only what is *sent* to the model
   (`MAX_HISTORY_MESSAGES` in `chat.py`); state keeps the full history.
 - Keep dependency pins to major 1.x ranges (verified against langgraph

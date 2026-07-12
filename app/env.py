@@ -5,7 +5,9 @@ providers the project supports. ``main.py`` calls :func:`check_environment`
 before the first graph run so a missing package, missing API key, or dead
 local server fails fast with guidance instead of a mid-run traceback —
 any other driver you write (batch job, FastAPI app, worker) should do the
-same.
+same. Failures raise :class:`EnvironmentCheckError` with a fix-it
+message; each driver decides what to do with it (the CLI exits cleanly,
+a server can log it and abort startup).
 
 Each :class:`Provider` row carries an optional ``preflight`` callable for
 checks beyond package + key (e.g. pinging a local server). The extras in
@@ -13,17 +15,18 @@ checks beyond package + key (e.g. pinging a local server). The extras in
 providers — when you add a row here, update both.
 
 ``MODEL_NAME`` uses ``init_chat_model``'s ``"provider:model"`` form; a
-bare model name is treated as OpenAI. Agents may name additional env
-variables holding per-agent model overrides (see ``BaseAgent``); pass
-those variable names in ``extra_model_vars`` so their models are checked
-too.
+bare model name has its provider inferred the same way ``init_chat_model``
+infers it (``gpt-*`` → openai, ``claude-*`` → anthropic, ...), so the
+check validates the provider that will actually be used. Agents may name
+additional env variables holding per-agent model overrides (see
+``BaseAgent``); pass those variable names in ``extra_model_vars`` so
+their models are checked too.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -36,6 +39,15 @@ from app.llm import DEFAULT_MODEL
 _logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
+
+
+class EnvironmentCheckError(RuntimeError):
+    """A configured model cannot work in this environment.
+
+    The message is user-facing and says how to fix the problem. Drivers
+    choose the reaction: ``main.py`` does ``sys.exit(str(error))``; a
+    server should log it and refuse to start.
+    """
 
 
 @dataclass(frozen=True)
@@ -99,6 +111,28 @@ PROVIDERS: dict[str, Provider] = {
 }
 
 
+def _infer_provider(model: str) -> str | None:
+    """Name the provider ``init_chat_model`` will resolve ``model`` to.
+
+    For a bare model name (no ``provider:`` prefix) this must agree with
+    ``init_chat_model``'s own inference — e.g. a bare ``claude-sonnet-5``
+    resolves to Anthropic, so checking OpenAI's key for it would validate
+    the wrong provider. Returns ``None`` when the provider cannot be
+    determined.
+    """
+
+    if ":" in model:
+        return model.split(":", 1)[0]
+    try:
+        # Private, but it IS the inference init_chat_model applies — using
+        # it keeps this check right by construction. Guarded so a future
+        # langchain rename degrades the check, not the app.
+        from langchain.chat_models.base import _attempt_infer_model_provider
+    except ImportError:  # pragma: no cover - depends on langchain version
+        return None
+    return _attempt_infer_model_provider(model)
+
+
 def configured_models(extra_model_vars: Iterable[str] = ()) -> set[str]:
     """Every model string the process is configured to use."""
 
@@ -116,15 +150,29 @@ def check_environment(extra_model_vars: Iterable[str] = ()) -> None:
         extra_model_vars: names of env variables holding per-agent model
             overrides (e.g. ``("SUMMARISER_MODEL",)``); their models are
             validated alongside ``MODEL_NAME``.
+
+    Raises:
+        EnvironmentCheckError: a model's provider package, API key, or
+            preflight check is missing/failing; the message says how to
+            fix it.
     """
 
     models = sorted(configured_models(extra_model_vars))
     for model in models:
-        provider_name = model.split(":", 1)[0] if ":" in model else "openai"
+        provider_name = _infer_provider(model)
+        if provider_name is None:
+            # A bare name init_chat_model cannot infer either — it would
+            # raise at first use, so fail now with better guidance.
+            raise EnvironmentCheckError(
+                f"Cannot infer the provider of model '{model}'.\n"
+                "Use the explicit provider:model form, e.g. "
+                f"openai:{model}"
+            )
 
         provider = PROVIDERS.get(provider_name)
         if provider is None:
-            # Unknown provider — let init_chat_model report it.
+            # Explicitly prefixed but not in PROVIDERS — init_chat_model
+            # may still support it, so warn and defer rather than block.
             _logger.warning(
                 "unknown provider '%s' — deferring validation to init_chat_model",
                 provider_name,
@@ -132,18 +180,18 @@ def check_environment(extra_model_vars: Iterable[str] = ()) -> None:
             continue
 
         if find_spec(provider.package) is None:
-            sys.exit(
+            raise EnvironmentCheckError(
                 f"Model {model} needs the "
                 f"{provider.package.replace('_', '-')} package.\n"
                 f"Install it with: {provider.install_hint}"
             )
         if provider.key_var and not os.getenv(provider.key_var):
-            sys.exit(
+            raise EnvironmentCheckError(
                 f"Missing {provider.key_var} (required by model {model}).\n"
                 "Copy .env.example to .env and fill in your key, "
                 f"or export {provider.key_var} in your shell."
             )
         if provider.preflight and (error := provider.preflight()):
-            sys.exit(error)
+            raise EnvironmentCheckError(error)
 
     _logger.info("environment ok: models=%s", ", ".join(models))
