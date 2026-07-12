@@ -39,7 +39,7 @@ Deploy (needs ``pip install -e ".[vertexai]"`` and
             "langchain-core>=1.4,<2",
             "langchain-google-vertexai>=3,<4",
         ],
-        extra_packages=["app"],
+        extra_packages=["app", "examples"],  # ship both packages the class needs
     )
     print(remote.query(message="hi", thread_id="user-1"))
 
@@ -81,14 +81,19 @@ class AgentEngineApp:
         if self._model:
             os.environ["MODEL_NAME"] = self._model
 
+        import sys
+
         from langgraph.checkpoint.memory import InMemorySaver
 
         from app.graph import build_graph
-        from app.log import configure_logging
+        from app.log import GcpJsonFormatter, configure_logging
 
         # set_up is this deployment's driver — it owns log configuration.
-        # JSON lines on stderr are parsed natively by Cloud Logging.
-        configure_logging(json_format=True)
+        # GcpJsonFormatter adds the `severity` field Cloud Logging keys
+        # on (plain JSON on stderr would all be ingested as ERROR).
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(GcpJsonFormatter())
+        configure_logging(handlers=[handler])
 
         # InMemorySaver = sessions survive within one container only.
         # For durable sessions use e.g. langchain-google-cloud-sql-pg:

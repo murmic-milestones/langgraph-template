@@ -86,7 +86,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 43 tests, no API key needed
+   pytest                          # 44 tests, no API key needed
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
    python examples/human_approval.py   # interrupt() demo
@@ -334,6 +334,22 @@ included). Swapping vendors is one line at the driver, zero changes in
 or OpenTelemetry's `LoggingHandler` for OTLP export to any backend.
 (LangSmith covers LLM *tracing*; this is for application logs.)
 
+**Google Cloud Logging sample.** On GCP (Cloud Run, GKE, Agent Engine)
+use `GcpJsonFormatter` — Cloud Logging reads the level from a JSON
+field named `severity`, and without it everything on stderr ingests as
+ERROR:
+
+```python
+handler = logging.StreamHandler(sys.stderr)
+handler.setFormatter(GcpJsonFormatter())
+configure_logging(handlers=[handler])
+```
+
+The Agent Engine adapter's `set_up()` does exactly this. From *outside*
+GCP, send logs via the API instead: `pip install google-cloud-logging`,
+then pass its handler through the same seam —
+`configure_logging(handlers=[CloudLoggingHandler(google.cloud.logging.Client())])`.
+
 ## Optional features — how to add or remove
 
 Each feature is self-contained and marked with a bracketed tag in code
@@ -426,7 +442,7 @@ gcloud auth application-default login
 
 then follow the deploy snippet in the module docstring
 (`vertexai.init(...)` + `agent_engines.create(AgentEngineApp(...),
-requirements=[...], extra_packages=["app"])`). Notes:
+requirements=[...], extra_packages=["app", "examples"])`). Notes:
 
 * The default `InMemorySaver` keeps sessions per-container; for real
   deployments swap in a durable saver (Cloud SQL / AlloyDB, see the

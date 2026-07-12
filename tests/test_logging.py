@@ -11,7 +11,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agents.greeter import NameCheck
 from app.graph import build_graph
-from app.log import configure_logging
+from app.log import GcpJsonFormatter, configure_logging
 from fakes import config, onboard_paul, run
 
 
@@ -53,6 +53,26 @@ def test_json_format_emits_parseable_lines_with_extras(
     assert entry["message"] == "hello"
     assert entry["logger"] == "app.test"
     assert entry["thread_id"] == "t-1"  # extras survive into the JSON
+
+
+def test_gcp_formatter_maps_level_to_severity(
+    monkeypatch, capsys, restore_root_logging
+):
+    """Cloud Logging keys on `severity`; without it stderr ingests as ERROR."""
+
+    import sys
+
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(GcpJsonFormatter())
+    configure_logging(handlers=[handler])
+
+    logging.getLogger("app.test").warning("careful", extra={"thread_id": "t-2"})
+
+    entry = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
+    assert entry["severity"] == "WARNING"
+    assert "level" not in entry
+    assert entry["thread_id"] == "t-2"
 
 
 def test_lifecycle_events_are_logged(fake, caplog):

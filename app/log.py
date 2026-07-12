@@ -77,6 +77,29 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, default=str)
 
 
+class GcpJsonFormatter(JsonFormatter):
+    """JsonFormatter for Google Cloud Logging (Cloud Run, GKE, Agent Engine).
+
+    Cloud Logging reads the log level from a JSON field named
+    ``severity`` — without it, everything on stderr is ingested as
+    ERROR. Python level names map to Cloud severities one-to-one.
+    Attach via the handler seam::
+
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(GcpJsonFormatter())
+        configure_logging(handlers=[handler])
+
+    (For sending logs to Cloud Logging from *outside* GCP, use the
+    ``google-cloud-logging`` package's ``CloudLoggingHandler`` through
+    the same ``handlers=`` seam instead — see the README recipe.)
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry = json.loads(super().format(record))
+        entry["severity"] = entry.pop("level")
+        return json.dumps(entry, default=str)
+
+
 def configure_logging(
     level: int | str | None = None,
     json_format: bool | None = None,
