@@ -5,6 +5,9 @@ two-stage chatbot — collect the user's name, then chat (with tool
 calling) — purely as a vehicle for the architecture patterns below.
 Replace the agents with your own and keep the skeleton.
 
+> **New to LangGraph?** Start with [ELI5.md](ELI5.md) — a plain-words
+> intro to the concepts plus a step-by-step first-chatbot guide.
+
 ```
 langgraph-template/
 ├── main.py                 # async CLI entry point (streaming chat loop)
