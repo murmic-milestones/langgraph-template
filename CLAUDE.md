@@ -14,6 +14,7 @@ python main.py            # async CLI chat loop (needs .env)
 python main.py --db x.db  # durable sessions (SQLite)
 python main.py --graph    # print graph as Mermaid source
 pytest                    # fake-LLM tests, no API key needed
+pytest evals              # model-quality evals — REAL calls, costs money
 ruff check . && ruff format .   # CI enforces both
 langgraph dev             # LangGraph Studio
 ```
@@ -81,6 +82,14 @@ documented steps including deleting the matching tests.
 - Recipes for recurring work live in `.claude/skills/` (`add-stage`,
   `add-tool`, `add-provider`, `remove-feature`) — follow them rather
   than improvising, and update them when the recipe changes.
+- Evals (`evals/`) call real models and cost money: never add them to
+  pytest `testpaths`, the Stop hook, or CI's default matrix (the
+  `Evals` workflow is manual-dispatch only). Run them when a prompt,
+  model, or provider changes. The judge rubric in
+  `evals/test_chat_quality.py` mirrors `_SYSTEM_PROMPT`'s promises —
+  editing one means updating the other. Judge failures print their
+  reasoning: read it before changing code; don't add retries to mask
+  stochastic flakes.
 - Comment markers are grep-able conventions — preserve and reuse them:
   `[tag]` marks an optional feature's lines; "enforced by tests/..."
   marks a contract with a matching invariant test; "Customisation

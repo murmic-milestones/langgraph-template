@@ -234,6 +234,66 @@ before claiming victory.
 
 ---
 
+## When something goes wrong 🔍
+
+Your bot keeps a **diary** — the log lines you see alongside the chat.
+Reading it is debugging step one.
+
+### The volume knob
+
+Set it in your `.env`:
+
+```
+LOG_LEVEL=DEBUG     # whisper everything (great while debugging)
+LOG_LEVEL=INFO      # the default: one line per important event
+LOG_LEVEL=WARNING   # quiet — only "hmm" and worse
+```
+
+Those are the standard levels, from chattiest to most serious:
+**DEBUG** (details), **INFO** (events: "chat reply generated in
+840ms"), **WARNING** ("something's off, but I carried on"),
+**ERROR** ("that broke" — with the full traceback).
+
+### The debugging ladder
+
+Work down this list — most problems die on the first two rungs:
+
+1. **Read the log.** The error and its traceback are usually right
+   there.
+2. **Turn up the volume.** `LOG_LEVEL=DEBUG`, run again, watch the
+   story unfold step by step.
+3. **Run `pytest`.** Green tests = your wiring is fine, so the problem
+   is config (keys, `.env`) or the model itself.
+4. **Look at the map.** `python main.py --graph`, or `langgraph dev` to
+   step through the graph live.
+5. **Check the AI's side.** Turn on LangSmith (see the toolbox) to see
+   exactly what was sent to the model and what came back.
+
+### Writing your own log lines
+
+Two lines at the top of your file, then shout away:
+
+```python
+import logging
+_logger = logging.getLogger(__name__)
+
+_logger.info("tool executed: roll_dice")
+_logger.debug("window has %d messages", len(recent))
+```
+
+Two house rules (both enforced by tests, so you can't forget):
+
+- **Only `main.py` sets up logging** — your files just emit. Never call
+  `logging.basicConfig` in `app/`.
+- **Never log what the user typed.** Chat text is private. Log *events*
+  ("user name collected"), not *content* — a test literally checks
+  that no conversation text leaks into the logs.
+
+(`LOG_FORMAT=json` makes the diary machine-readable for cloud log
+tools — you won't need it on your laptop.)
+
+---
+
 ## Your toolbox 🧰
 
 | Tool | What it gives you | How |
@@ -245,6 +305,7 @@ before claiming victory.
 | **LangGraph docs** | The full manual, for when you outgrow this file | [docs.langchain.com](https://docs.langchain.com/oss/python/langgraph/overview) |
 | **LangChain Academy** | Free structured courses on agents | [academy.langchain.com](https://academy.langchain.com) |
 | **Claude Code** | The AI assistant this project is pre-wired for | [claude.com/claude-code](https://claude.com/claude-code) |
+| **Evals** | Grades the AI's *answers* (tests only check wiring). Costs a little — run after prompt changes | `pytest evals` |
 
 💸 **Before you experiment a lot:** set a monthly spending cap in your
 model provider's billing dashboard. Experiments are cheap; surprises
@@ -263,9 +324,11 @@ aren't.
 | Checkpointer | Save slots per conversation | `build_graph(checkpointer=...)` |
 | Tools | The robot's hands | `app/tools.py` |
 | Tests | Your safety net (free + fast) | `tests/` — run `pytest` |
+| Logs | The bot's diary | `LOG_LEVEL=DEBUG` in `.env` |
 | CLAUDE.md | The AI helper's rulebook | keep it updated! |
 | .claude/ | Pre-wired AI guardrails | permissions, hooks, recipes |
 
 **The golden loop:** change one small thing → `python main.py` to feel
 it → `pytest` to prove it → update CLAUDE.md/README if behaviour
-changed → repeat. Welcome to agent building. 🚀
+changed → repeat. (Changed a *prompt*? Add `pytest evals` — tests prove
+the wiring, evals grade the answers.) Welcome to agent building. 🚀

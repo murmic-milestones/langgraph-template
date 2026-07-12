@@ -18,6 +18,7 @@ langgraph-template/
 ├── .github/workflows/ci.yml# lint + format + tests on 3.10/3.12/3.14
 ├── AGENTS.md               # entry point for AI coding tools -> CLAUDE.md
 ├── .claude/                # AI-tooling config: permissions, hooks, skills
+├── evals/                  # real-model evals: pytest evals  [removable]
 ├── examples/
 │   ├── human_approval.py   # standalone interrupt() demo   [removable]
 │   └── agent_engine_app.py # Google Agent Engine adapter   [removable]
@@ -87,6 +88,7 @@ langgraph-template/
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
    pytest                          # 44 tests, no API key needed
+   pytest evals                    # model-quality evals (REAL calls, costs money)
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
    python examples/human_approval.py   # interrupt() demo
@@ -350,6 +352,37 @@ GCP, send logs via the API instead: `pip install google-cloud-logging`,
 then pass its handler through the same seam —
 `configure_logging(handlers=[CloudLoggingHandler(google.cloud.logging.Client())])`.
 
+### 18. Evals — grading the model, not the wiring
+
+The test suite proves the *wiring* with a fake LLM; **evals grade the
+model** with real calls. They live in `evals/`, outside pytest's
+`testpaths`, so the default `pytest` (and the Stop hook, and CI's
+matrix) never runs them — run `pytest evals` when you change a prompt,
+a model, or a provider. Without an API key they skip with an
+explanation; a manual GitHub Actions workflow (`Evals`, run from the
+Actions tab with an `OPENAI_API_KEY` secret) runs them on demand.
+
+The three example evals are the three canonical types:
+
+* **Programmatic scoring** (`test_greeter_extraction.py`) — realistic
+  phrasings vs expected extracted names, including "must NOT extract"
+  cases. Catches bad edits to the extraction prompt.
+* **Trajectory checking** (`test_model_uses_the_time_tool`) — asserts
+  the model chose to call the tool, read from state; the *path*, not
+  the words.
+* **LLM-as-judge** (`test_reply_quality_judged`) — `evals/judge.py`
+  grades the reply against a rubric with a structured `Verdict`
+  (Pydantic, no parsing). Set `EVAL_JUDGE_MODEL` to judge a cheap
+  model's answers with a stronger one. The rubric mirrors
+  `_SYSTEM_PROMPT`'s promises — edit one, update the other.
+
+Honest caveat: evals are stochastic. A judge failure prints its
+reasoning — read it before blaming the code; a flaky extraction case is
+signal about your prompt or model, not an invitation to add retries.
+When you outgrow inline cases: LangSmith datasets + `evaluate()` for
+tracked runs, and LangChain's `openevals`/`agentevals` for prebuilt
+judges and trajectory evaluators.
+
 ## Optional features — how to add or remove
 
 Each feature is self-contained and marked with a bracketed tag in code
@@ -362,6 +395,7 @@ comments. Removal never requires understanding the feature's internals.
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
 | interrupt() demo | `examples/human_approval.py`, `tests/test_examples.py` | delete both files |
 | Agent Engine (GCP) | `examples/agent_engine_app.py`, `tests/test_agent_engine.py`, `[vertexai]` extra | delete all three |
+| Evals | `evals/`, `.github/workflows/evals.yml` | delete both |
 
 ## Model providers
 

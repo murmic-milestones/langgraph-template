@@ -34,7 +34,9 @@ _logger = logging.getLogger(__name__)
 MAX_HISTORY_MESSAGES = 40
 
 # Customisation knob — edit freely; this is the template's personality
-# dial. Keep the {name} placeholder (respond() fills it from the profile).
+# dial. Keep the {name} placeholder (respond() fills it from the profile),
+# and keep RUBRIC in evals/test_chat_quality.py in sync with the promises
+# you make here.
 _SYSTEM_PROMPT = """\
 You are a friendly hello-world assistant.
 The user's name is {name}; occasionally address them by it.
