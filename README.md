@@ -87,7 +87,7 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 44 tests, no API key needed
+   pytest                          # 45 tests, no API key needed
    pytest evals                    # model-quality evals (REAL calls, costs money)
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
