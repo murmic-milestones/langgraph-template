@@ -72,6 +72,8 @@ def build_graph(
 
     builder = StateGraph(AppState)
 
+    # Node/gate contract (async nodes, sync gate predicates) is enforced
+    # by tests/test_template_invariants.py.
     builder.add_node("collect_name", greeter.collect_name, retry_policy=_LLM_RETRY)
     builder.add_node("chat", chat.respond, retry_policy=_LLM_RETRY)
     builder.add_node("tools", ToolNode(TOOLS))  # [tools]
@@ -95,5 +97,6 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-# Entry point for langgraph.json (Studio / `langgraph dev` / platform).
+# Entry point for langgraph.json (Studio / `langgraph dev` / platform) —
+# must stay checkpointer-free: the runtime injects its own persistence.
 graph = build_graph()

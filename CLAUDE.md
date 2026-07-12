@@ -72,6 +72,11 @@ documented steps including deleting the matching tests.
 - Recipes for recurring work live in `.claude/skills/` (`add-stage`,
   `add-tool`, `add-provider`, `remove-feature`) — follow them rather
   than improvising, and update them when the recipe changes.
+- Comment markers are grep-able conventions — preserve and reuse them:
+  `[tag]` marks an optional feature's lines; "enforced by tests/..."
+  marks a contract with a matching invariant test; "Customisation
+  knob" marks lines meant to be edited freely. Explanations live in
+  exactly one place; everywhere else points to it — never restate.
 
 ## Watch out for
 

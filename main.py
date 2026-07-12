@@ -11,16 +11,11 @@ the checkpointer carries the conversation state between runs. A web
 front-end works the same way — derive the thread id from the user's
 session and run the graph per incoming message.
 
-Replies stream token-by-token via ``stream_mode="messages"``. Only nodes
-listed in ``STREAMING_NODES`` are streamed: every LLM call in the graph
-emits chunks, including the greeter's structured-output extraction (raw
-JSON deltas) and tool results — neither is user-facing. For turns that
-end in a non-streaming node (e.g. the onboarding question) the final
-message is printed from the checkpointed state instead.
-
-``--db`` is an optional feature: it needs the ``langgraph-checkpoint-
-sqlite`` package (in the ``dev`` extra). To remove it, delete the two
-``[sqlite]`` blocks below and the dependency.
+Functions are ordered inner → outer: one turn (``run_turn``), the chat
+loop (``chat_loop``), the runtime wrapper (``amain``), then the entry
+point (``main``) — read top to bottom; execution starts at the bottom.
+Streaming behaviour is documented on ``run_turn``; the optional
+``[sqlite]`` feature on ``amain``.
 """
 
 from __future__ import annotations
@@ -36,12 +31,22 @@ from app.env import check_environment
 from app.graph import build_graph
 from app.visualization import to_mermaid
 
-# Nodes whose LLM tokens are printed as they arrive.
+# Nodes whose LLM tokens are printed as they arrive. A new LLM-calling
+# node stays silent until added here; never add nodes that emit
+# structured-output JSON or raw tool traffic.
 STREAMING_NODES = {"chat"}
 
 
 async def run_turn(graph, config: dict, text: str) -> None:
-    """Run one graph turn, streaming the reply to stdout."""
+    """Run one graph turn, streaming the reply to stdout.
+
+    ``stream_mode="messages"`` yields chunks from *every* LLM call in
+    the graph — including the greeter's structured-output extraction
+    (raw JSON deltas) and tool traffic, which are not user-facing — so
+    ``STREAMING_NODES`` whitelists what reaches the console. Turns that
+    end in a non-streaming node print the final message from the
+    checkpointed state instead.
+    """
 
     print("\nAssistant: ", end="", flush=True)
     streamed = False
@@ -82,6 +87,14 @@ async def chat_loop(graph) -> None:
 
 
 async def amain(db_path: str | None) -> None:
+    """Build the graph with the chosen checkpointer and run the loop.
+
+    ``--db`` is the optional ``[sqlite]`` feature (needs
+    ``langgraph-checkpoint-sqlite``, in the dev extra). To remove it:
+    delete the ``[sqlite]``-marked blocks in this file,
+    ``tests/test_persistence.py``, and the dependency.
+    """
+
     if db_path:  # [sqlite] durable sessions
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 

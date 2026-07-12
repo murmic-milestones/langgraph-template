@@ -23,10 +23,13 @@ from app.agents.base import BaseAgent
 from app.state import AppState
 from app.tools import TOOLS  # [tools]
 
-# [trim] Prompt window size, counted in messages (not tokens). For
-# token-based trimming, pass the model as token_counter instead of len.
+# [trim] Customisation knob — tune freely. Prompt window size, counted in
+# messages (not tokens). For token-based trimming, pass the model as
+# token_counter instead of len.
 MAX_HISTORY_MESSAGES = 40
 
+# Customisation knob — edit freely; this is the template's personality
+# dial. Keep the {name} placeholder (respond() fills it from the profile).
 _SYSTEM_PROMPT = """\
 You are a friendly hello-world assistant.
 The user's name is {name}; occasionally address them by it.

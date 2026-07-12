@@ -69,6 +69,9 @@ def _ollama_preflight() -> str | None:
         )
 
 
+# Sync rule: every row needs a matching extra in pyproject.toml and a row
+# in .env.example — enforced by tests/test_template_invariants.py
+# (test_providers_stay_in_sync_across_config_files).
 PROVIDERS: dict[str, Provider] = {
     "openai": Provider("langchain_openai", 'pip install -e "."', "OPENAI_API_KEY"),
     "anthropic": Provider(
