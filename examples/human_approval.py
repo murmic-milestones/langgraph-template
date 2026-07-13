@@ -8,8 +8,10 @@ point. Prefer it when re-running earlier nodes would be wasteful or
 wrong (approvals before irreversible actions, mid-task confirmation).
 
 This example is self-contained — no LLM, no shared code with ``app/`` —
-so it can be deleted (with its test in ``tests/test_examples.py``)
-without touching anything else.
+so it can be deleted (with its test in ``tests/test_human_approval.py``)
+without touching anything else. For the production wiring of this
+mechanism — approval gating *real tool calls* requested by the model —
+see ``examples/tool_approval.py``.
 
 Run it::
 

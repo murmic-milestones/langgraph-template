@@ -19,9 +19,15 @@ langgraph-template/
 ├── AGENTS.md               # entry point for AI coding tools -> CLAUDE.md
 ├── .claude/                # AI-tooling config: permissions, hooks, skills
 ├── evals/                  # real-model evals: pytest evals  [removable]
-├── examples/
-│   ├── human_approval.py   # standalone interrupt() demo   [removable]
-│   └── agent_engine_app.py # Google Agent Engine adapter   [removable]
+├── examples/               # runnable pattern demos, each  [removable]
+│   ├── human_approval.py   #   bare interrupt() mechanism (no LLM)
+│   ├── tool_approval.py    #   approval gate for dangerous tool calls
+│   ├── fastapi_server.py   #   HTTP + SSE serving (FastAPI, [serve] extra)
+│   ├── batch_pipeline.py   #   side-effecting batch pipeline (pattern 16)
+│   ├── parallel_fanout.py  #   Send API map-reduce
+│   ├── long_term_memory.py #   cross-thread memory (Store API, no LLM)
+│   ├── time_travel.py      #   checkpoint history + forking (no LLM)
+│   └── agent_engine_app.py #   Google Agent Engine adapter
 ├── tests/
 │   ├── conftest.py         # the fake-LLM fixture
 │   ├── fakes.py            # recording FakeLLM + helpers
@@ -32,8 +38,7 @@ langgraph-template/
 │   ├── test_template_invariants.py # architecture rules as tests
 │   ├── test_logging.py     # log levels, JSON format, PII rule
 │   ├── test_persistence.py # SQLite durability             [removable]
-│   ├── test_examples.py    # interrupt demo tests          [removable]
-│   └── test_agent_engine.py# Agent Engine adapter tests    [removable]
+│   └── test_<example>.py   # one per examples/ demo        [removable]
 └── app/
     ├── state.py            # typed state schema + reducers
     ├── log.py              # logging config (the vendor seam)
@@ -69,7 +74,8 @@ langgraph-template/
    ```
 
    (Plain `pip install -e .` is enough at runtime; the `dev` extra adds
-   pytest, ruff, the LangGraph CLI for Studio, and the SQLite saver.)
+   pytest, ruff, the LangGraph CLI for Studio, the SQLite saver, and
+   fastapi so the server example's tests run.)
 
 3. **Configure the environment:**
 
@@ -87,11 +93,12 @@ langgraph-template/
    python main.py                  # interactive chat (streams tokens)
    python main.py --db chat.db     # same, sessions survive restarts
    python main.py --graph          # print the graph as Mermaid source
-   pytest                          # 48 tests, no API key needed
+   pytest                          # 68 tests, no API key needed
    pytest evals                    # model-quality evals (REAL calls, costs money)
    ruff check . && ruff format .   # lint + format
    langgraph dev                   # open the graph in LangGraph Studio
-   python examples/human_approval.py   # interrupt() demo
+   python examples/human_approval.py   # every examples/ demo is runnable —
+                                       # the run command is in its docstring
    ```
 
 5. **Make it yours:**
@@ -131,7 +138,10 @@ state = await graph.ainvoke({"messages": [HumanMessage(content=text)]}, config)
 ```
 
 The next invoke on the same thread resumes with everything collected so
-far — you never manage a session store by hand. The module-level `graph`
+far — you never manage a session store by hand. Two runnable extensions
+of this pattern live in `examples/`: `long_term_memory.py` (facts that
+survive *across* threads, via the Store API) and `time_travel.py`
+(listing, replaying, and forking a thread's checkpoints). The module-level `graph`
 in `app/graph.py` is compiled **without** a checkpointer: it is the
 entry point declared in `langgraph.json`, and LangGraph Studio / the
 platform inject their own persistence.
@@ -184,7 +194,9 @@ whole graph every turn is cheap. Adding a stage is a new node + gate
 pair inserted into the chain.
 
 > LangGraph also supports pausing *mid-run* with `interrupt()` — see
-> `examples/human_approval.py` for a working demo and when to prefer it.
+> `examples/human_approval.py` for the bare mechanism and when to prefer
+> it, and `examples/tool_approval.py` for its production use: gating
+> dangerous tool calls behind human approval.
 
 ### 8. Structured output via Pydantic
 
@@ -225,7 +237,8 @@ class SummariserAgent(BaseAgent):
 worth copying: **filter by node** (`STREAMING_NODES` — every LLM call
 emits chunks, including structured-output extractions and tool traffic
 that must not reach the user), and **fall back to state** for turns that
-end in a non-streaming node. The same loop works for SSE/websockets.
+end in a non-streaming node. The same loop works for SSE/websockets —
+`examples/fastapi_server.py` is exactly that, as an SSE endpoint.
 
 ### 12. Retries for transient failures
 
@@ -294,8 +307,8 @@ configured model must support vision) before trusting a new one.
 
 This template's agents are *pure*: state in, state out, persistence
 owned by the checkpointer. Agents that write outputs themselves — files,
-database rows, API calls — follow a different recipe (proven out in a
-sibling batch-pipeline project):
+database rows, API calls — follow a different recipe
+(`examples/batch_pipeline.py` is a runnable demo of all four rules):
 
 * **One graph run per unit of work** (one image, one document, one
   ticket) — the driver owns the loop, ordering, `--limit`-style options
@@ -393,7 +406,13 @@ comments. Removal never requires understanding the feature's internals.
 | Tool calling `[tools]` | `app/tools.py`, 2 marked lines in `chat.py`, 4 in `graph.py` | steps listed in `app/tools.py` docstring |
 | History trimming `[trim]` | `app/agents/chat.py` | delete the `trim_messages` call, pass `state["messages"]` |
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
-| interrupt() demo | `examples/human_approval.py`, `tests/test_examples.py` | delete both files |
+| interrupt() demo | `examples/human_approval.py`, `tests/test_human_approval.py` | delete both files |
+| Tool-approval gate | `examples/tool_approval.py`, `tests/test_tool_approval.py` | delete both files |
+| FastAPI server | `examples/fastapi_server.py`, `tests/test_fastapi_server.py`, `[serve]` extra + fastapi in `dev` | delete all four |
+| Batch pipeline | `examples/batch_pipeline.py`, `tests/test_batch_pipeline.py` | delete both files |
+| Parallel fan-out | `examples/parallel_fanout.py`, `tests/test_parallel_fanout.py` | delete both files |
+| Long-term memory | `examples/long_term_memory.py`, `tests/test_long_term_memory.py` | delete both files |
+| Time travel | `examples/time_travel.py`, `tests/test_time_travel.py` | delete both files |
 | Agent Engine (GCP) | `examples/agent_engine_app.py`, `tests/test_agent_engine.py`, `[vertexai]` extra | delete all three |
 | Evals | `evals/`, `.github/workflows/evals.yml` | delete both |
 
@@ -498,8 +517,10 @@ requirements=[...], extra_packages=["app", "examples"])`). Notes:
 
 ## Serving over HTTP
 
-The graph is transport-agnostic. A minimal FastAPI handler — note the
-`thread_id` comes from the **authenticated** user, never from the
+The graph is transport-agnostic. `examples/fastapi_server.py` is a
+working server — JSON endpoint plus SSE token streaming; install with
+`pip install -e ".[serve]"`. The essence is a handler like this — note
+the `thread_id` comes from the **authenticated** user, never from the
 request body/path (see Security below):
 
 ```python
@@ -513,8 +534,9 @@ async def chat(text: str, user=Depends(current_user)) -> dict:
     return {"reply": state["messages"][-1].text}
 ```
 
-For streaming responses, adapt `run_turn` in `main.py` to yield SSE
-events from `astream`.
+For streaming responses, see the `/chat/stream` SSE endpoint in
+`examples/fastapi_server.py` — it is `run_turn` from `main.py` yielding
+SSE events instead of printing.
 
 ## Security
 
@@ -534,7 +556,8 @@ Two issues live above the code and are easy to get wrong:
   and *with what arguments* via a crafted message. Treat every tool
   argument as attacker-controlled: keep tools least-privilege, validate
   inputs, and gate irreversible actions behind human approval
-  (`examples/human_approval.py`). Full guidance is in `app/tools.py`.
+  (`examples/tool_approval.py` is the wiring to copy). Full guidance is
+  in `app/tools.py`.
 
 Also worth a look before production: conversation history is stored
 **unencrypted at rest** by the checkpointer (the SQLite `--db` file, or

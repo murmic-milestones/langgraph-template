@@ -16,7 +16,9 @@ attacker-controlled:
 * validate/whitelist arguments inside the tool (paths, URLs, ids) rather
   than trusting the model to pass safe values;
 * prefer read-only, side-effect-free tools; gate irreversible actions
-  behind an explicit human-approval step (see examples/human_approval.py).
+  behind an explicit human-approval step (``examples/tool_approval.py``
+  is the wiring to copy; ``examples/human_approval.py`` shows the bare
+  interrupt() mechanism).
 
 To REMOVE tool calling from the template entirely:
 1. delete this file;

@@ -1,4 +1,4 @@
-"""Test for the standalone interrupt() example.
+"""Tests for the standalone interrupt() example.
 
 Delete this file together with ``examples/human_approval.py``.
 """

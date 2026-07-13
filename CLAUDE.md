@@ -58,15 +58,21 @@ langgraph dev             # LangGraph Studio
 ## Optional features
 
 Tool calling `[tools]`, prompt trimming `[trim]`, SQLite sessions
-`[sqlite]`, the `examples/` interrupt demo, and the Google Agent
-Engine adapter (`examples/agent_engine_app.py` + `[vertexai]` extra;
-config-only pickled `__init__`, graph built in `set_up()`, never call
-`check_environment` there) are deliberately loosely coupled. Code blocks belonging to each are marked with the
-bracketed tag, and removal steps live in the feature's home file
-(`app/tools.py`, `app/agents/chat.py`, `main.py`, `examples/`). When
+`[sqlite]`, every demo in `examples/` (each pairs with exactly one
+`tests/test_<name>.py`; the FastAPI server also owns the `[serve]`
+extra + the fastapi pin in `dev`), and the Google Agent Engine adapter
+(`examples/agent_engine_app.py` + `[vertexai]` extra; config-only
+pickled `__init__`, graph built in `set_up()`, never call
+`check_environment` there) are deliberately loosely coupled. Code
+blocks belonging to each are marked with the bracketed tag, and
+removal steps live in the feature's home file (`app/tools.py`,
+`app/agents/chat.py`, `main.py`, each example's docstring). When
 editing near a marked block, preserve the tag comments and keep the
 feature removable; when asked to remove a feature, follow its
-documented steps including deleting the matching tests.
+documented steps including deleting the matching tests. Examples that
+import `app` run as modules (`python -m examples.<name>`); the
+self-contained no-LLM ones (`human_approval`, `long_term_memory`,
+`time_travel`) also run as plain scripts.
 
 ## AI-tooling layer (ships with the template)
 
