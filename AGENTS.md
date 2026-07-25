@@ -17,7 +17,8 @@ The short version:
   `.claude/skills/*/SKILL.md` — follow them step by step even if your
   tool doesn't auto-load skills.
 - **Keep docs in sync**: behaviour changes must update CLAUDE.md and the
-  README section describing the pattern, in the same change.
+  doc that owns what changed — PATTERNS.md for a pattern, README for
+  usage/deployment — in the same change.
 - **Respect the comment markers**: `[tag]` = optional-feature lines,
   `enforced by tests/...` = a contract with an invariant test,
   `Customisation knob` = edit freely. Preserve and extend them.

@@ -29,5 +29,5 @@ Add an onboarding stage that collects `<fact>` before the chat stage.
    (`fake.structured_results[YourSchema] = ...`).
 5. **Verify**: `python main.py --graph` (wiring), `pytest` (the
    invariant tests enforce async nodes / sync gates automatically).
-6. **Docs**: update the flow diagrams in `app/graph.py`, README, and
+6. **Docs**: update the flow diagrams in `app/graph.py`, PATTERNS.md, and
    CLAUDE.md if the flow shape changed.

@@ -6,6 +6,10 @@ name: Evals
 on:
   workflow_dispatch:
 
+# Least privilege — this job reads the repo and calls a model API.
+permissions:
+  contents: read
+
 jobs:
   evals:
     runs-on: ubuntu-latest

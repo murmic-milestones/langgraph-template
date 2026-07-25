@@ -1,0 +1,16 @@
+# One-command local run of the containerised server. [OPTIONAL FEATURE —
+# see the Dockerfile header]
+#
+#   docker compose up --build      # http://localhost:8000
+#
+# Reads secrets from your local .env (never baked into the image).
+services:
+  agent:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      LOG_FORMAT: json
+    restart: unless-stopped

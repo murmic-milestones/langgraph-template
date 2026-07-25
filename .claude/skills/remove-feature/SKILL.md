@@ -28,8 +28,9 @@ Procedure:
    it (e.g. `test_tool_calling_loop` for `[tools]`).
 3. Remove its dependency/extra from `pyproject.toml` if no other
    feature uses it.
-4. Sweep the docs: README structure tree + optional-features table +
-   the pattern section describing it; CLAUDE.md's optional-features
-   paragraph; `.env.example` if it had variables; this skill's table.
+4. Sweep the docs: README structure tree + optional-features table;
+   the PATTERNS.md section describing it, if any; CLAUDE.md's
+   optional-features paragraph; `.env.example` if it had variables;
+   ELI5.md if a beginner step mentions it.
 5. **Verify**: `pytest` must be green and `ruff check .` clean; run
    `python main.py --graph` to confirm the graph still wires up.

@@ -2,9 +2,11 @@
 
 Hello-world LangGraph 1.x agent (collect name → chat with tools) meant
 to be copied as the skeleton for new projects. Keep it minimal: it
-exists to demonstrate patterns, not accumulate features. README.md
-documents each pattern — update it whenever the pattern it describes
-changes.
+exists to demonstrate patterns, not accumulate features. Docs split by
+audience: README.md = use/run/deploy it, PATTERNS.md = why each pattern
+is built that way, ELI5.md = beginner tutorial, this file = rules for AI
+tools. Update the one that owns the thing you changed (a pattern change
+means PATTERNS.md).
 
 ## Commands
 

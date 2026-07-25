@@ -2,7 +2,12 @@
 
 You're about to build an AI agent. Good news: you don't need to know
 much. This page explains the whole idea in plain words, using the real
-code in this folder. Read it top to bottom — it's short on purpose.
+code in this folder.
+
+**How to read it:** Part 1 is a five-minute tour of the ideas. Part 2
+gets you a running, edited-by-you chatbot. Everything after that
+(debugging, toolbox, cheat sheet) is reference — skim it now, come back
+when you need it.
 
 ---
 
@@ -223,31 +228,17 @@ section below.)
 
 ## Bonus: building with an AI assistant 🤖🤝
 
-Using Claude Code (or another AI coding tool)? This project comes
-**pre-wired** for it, and every copy keeps the wiring:
-
-- **The AI reads the rulebook.** [CLAUDE.md](CLAUDE.md) tells it the
-  commands, the architecture, and the traps. Other tools find the same
-  rules via [AGENTS.md](AGENTS.md).
-- **It can verify without nagging you.** Safe commands (`pytest`,
-  `ruff`, `python main.py`) are pre-approved in
-  `.claude/settings.json` — and reading your `.env` secrets is blocked.
-- **Its code is auto-tidied.** A hook runs the formatter on every file
-  the AI writes. No messy robot code.
-- **It can't say "done" with broken tests.** Another hook runs `pytest`
-  whenever the AI tries to finish — red tests send it back to work.
-  (This is why the fast, free test suite matters so much.)
-- **It follows the recipes.** Ask for "add a tool" or "add an
-  onboarding stage" and it uses the step-by-step recipes in
-  `.claude/skills/` instead of improvising its own way.
-- **The architecture defends itself.** Special tests
-  (`tests/test_template_invariants.py`) check the *patterns*, not the
-  features. If the AI — or you — breaks a project rule, pytest says so
-  and names the rule. The fix is always: change the code, not the test.
+Using Claude Code (or another AI tool)? The project is **pre-wired**, and
+every copy keeps the wiring: the AI reads the rules in
+[CLAUDE.md](CLAUDE.md), safe commands are pre-approved (your `.env` is
+not), a hook auto-formats whatever it writes, and another hook won't let
+it say "done" while `pytest` is red. Ask for "add a tool" and it follows
+the same recipe you would.
 
 **Try it:** open the project in Claude Code and say *"add a coin-flip
 tool"*. Watch it follow the recipe, write a test, and run `pytest`
-before claiming victory.
+before claiming victory. (Details: README → "Working with AI coding
+tools".)
 
 ---
 
@@ -266,10 +257,9 @@ LOG_LEVEL=INFO      # the default: one line per important event
 LOG_LEVEL=WARNING   # quiet — only "hmm" and worse
 ```
 
-Those are the standard levels, from chattiest to most serious:
-**DEBUG** (details), **INFO** (events: "chat reply generated in
-840ms"), **WARNING** ("something's off, but I carried on"),
-**ERROR** ("that broke" — with the full traceback).
+Chattiest to most serious: **DEBUG** (details) → **INFO** (events) →
+**WARNING** ("off, but I carried on") → **ERROR** ("that broke", with
+the traceback).
 
 ### The debugging ladder
 
@@ -296,19 +286,16 @@ import logging
 _logger = logging.getLogger(__name__)
 
 _logger.info("tool executed: roll_dice")
-_logger.debug("window has %d messages", len(recent))
 ```
 
-Two house rules (both enforced by tests, so you can't forget):
+Two house rules, both enforced by tests so you can't forget:
 
-- **Only `main.py` sets up logging** — your files just emit. Never call
-  `logging.basicConfig` in `app/`.
-- **Never log what the user typed.** Chat text is private. Log *events*
-  ("user name collected"), not *content* — a test literally checks
-  that no conversation text leaks into the logs.
-
-(`LOG_FORMAT=json` makes the diary machine-readable for cloud log
-tools — you won't need it on your laptop.)
+- **Only the entry point sets logging up** (`main.py` calls it; the
+  config lives in `lib/log.py`). Your files just emit — never call
+  `logging.basicConfig` yourself.
+- **Never log what the user typed.** Log *events* ("user name
+  collected"), not *content* — a test checks that no conversation text
+  leaks into the logs.
 
 ---
 
