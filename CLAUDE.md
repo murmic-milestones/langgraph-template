@@ -166,7 +166,10 @@ self-contained no-LLM ones (`human_approval`, `long_term_memory`,
 - Trimming affects only what is *sent* to the model
   (`MAX_HISTORY_MESSAGES` in `chat.py`); state keeps the full history.
 - Keep dependency pins to major 1.x ranges (verified against langgraph
-  1.2.9). CI runs ruff check + format + pytest on 3.10/3.12/3.14 —
+  1.2.9). Python 3.11+ only — interrupt() cannot reach the runnable
+  config inside an async node on 3.10 (asyncio.create_task(context=)
+  is 3.11+), and every node here is async. CI runs ruff check +
+  format + pytest on 3.11/3.12/3.14 —
   run all three locally before pushing.
 - License is 0BSD — no attribution required; don't add license headers
   to source files.

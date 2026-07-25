@@ -39,7 +39,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 DEFAULT_LEVEL = "INFO"
 
@@ -64,7 +64,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         entry: dict = {
-            "time": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(
+            "time": datetime.fromtimestamp(record.created, tz=UTC).isoformat(
                 timespec="milliseconds"
             ),
             self.level_key: record.levelname,

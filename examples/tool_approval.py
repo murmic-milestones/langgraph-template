@@ -85,13 +85,19 @@ class OpsAgent(BaseAgent):
         return {"messages": [reply]}
 
 
-def review_tool_calls(state: ApprovalState) -> Command[Literal["tools", "chat"]]:
+async def review_tool_calls(state: ApprovalState) -> Command[Literal["tools", "chat"]]:
     """Gate node: pause for approval before any dangerous tool runs.
 
     On approval the run continues to the tool node unchanged. On denial,
     every requested call is answered with a "denied" ToolMessage (the
     model needs a response for each tool_call id) and control returns to
     the chat node so the model can acknowledge the refusal.
+
+    ``async`` like every node in this template. Note that ``interrupt()``
+    inside an async node is why the project requires Python 3.11+:
+    LangGraph can only carry the runnable config into an async node via
+    ``asyncio.create_task(context=...)``, which does not exist on 3.10,
+    so there it raises "Called get_config outside of a runnable context".
     """
 
     request = state["messages"][-1]

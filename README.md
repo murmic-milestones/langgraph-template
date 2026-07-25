@@ -24,7 +24,7 @@ langgraph-template/
 ├── compose.yaml            #   `docker compose up --build`
 ├── LICENSE                 # 0BSD — permissive, no attribution required
 ├── .env.example            # copy to .env and fill in
-├── .github/workflows/ci.yml# lint + format + tests on 3.10/3.12/3.14
+├── .github/workflows/ci.yml# lint + format + tests on 3.11/3.12/3.14
 ├── AGENTS.md               # entry point for AI coding tools -> CLAUDE.md
 ├── .claude/                # AI-tooling config: permissions, hooks, skills
 ├── evals/                  # real-model evals: pytest evals  [removable]
@@ -340,7 +340,11 @@ secret-bearing CI workflow is manual-dispatch only (never PR-triggered).
 
 ## Requirements
 
-* Python 3.10+ (CI covers 3.10, 3.12, 3.14)
+* Python **3.11+** (CI covers 3.11, 3.12, 3.14). 3.11 is a hard floor,
+  not a preference: LangGraph can only pass the runnable config into an
+  async node via `asyncio.create_task(context=...)`, which is 3.11+, so
+  on 3.10 `interrupt()` raises inside an async node — and every node
+  here is async. (Python 3.10 reaches end of life in October 2026.)
 * Pinned majors: `langgraph 1.x`, `langchain 1.x`, `langchain-core 1.x`,
   `langchain-openai 1.x` (verified against langgraph 1.2.9).
 

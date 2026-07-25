@@ -107,7 +107,7 @@ else is detail.
 
 ### Step 0 — What you need
 
-Python 3.10+ and an OpenAI API key (or another provider — see the
+Python 3.11+ and an OpenAI API key (or another provider — see the
 README's provider table).
 
 ### Step 1 — Get the code and install

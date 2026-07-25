@@ -198,7 +198,7 @@ installed on the machine running the tests.
 `python main.py --graph` prints Mermaid source (`lib/visualization.py`
 also renders PNG). `langgraph dev` opens the graph in **LangGraph
 Studio** for step-through debugging. GitHub Actions runs ruff + pytest
-on Python 3.10/3.12/3.14 for every push and PR.
+on Python 3.11/3.12/3.14 for every push and PR.
 
 ### 15. Image (vision) input
 
