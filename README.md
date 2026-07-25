@@ -147,7 +147,7 @@ comments. Removal never requires understanding the feature's internals.
 | Feature | Lives in | Remove by |
 |---|---|---|
 | Tool calling `[tools]` | `tools/`, plus every `[tools]`-marked line in `app/agents/chat.py` and `app/graph.py` | steps listed in `tools/__init__.py` docstring |
-| History trimming `[trim]` | `app/agents/chat.py` | delete the `trim_messages` call, pass `state["messages"]` |
+| History trimming `[trim]` | `app/agents/chat.py` | delete the `max_messages=` argument in `respond()` |
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
 | interrupt() demo | `examples/human_approval.py`, `tests/test_human_approval.py` | delete both files |
 | Tool-approval gate | `examples/tool_approval.py`, `tests/test_tool_approval.py` | delete both files |

@@ -83,7 +83,7 @@ def test_lifecycle_events_are_logged(fake, caplog):
 
     messages = [r.getMessage() for r in caplog.records]
     assert any("structured call ok" in m for m in messages)
-    assert any("chat reply generated" in m for m in messages)
+    assert any("chat call ok" in m for m in messages)
 
 
 def test_no_conversation_content_in_logs(fake, caplog):

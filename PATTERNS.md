@@ -123,10 +123,12 @@ validation-retry code.
 
 ### 9. Prompt-window trimming
 
-`ChatAgent.respond` sends only the most recent `MAX_HISTORY_MESSAGES`
-messages (via `trim_messages`) while the full history stays in state.
-Long conversations stop growing the prompt without losing data. For
-token-based budgets, pass the model itself as `token_counter`.
+`ChatAgent.respond` passes `max_messages=MAX_HISTORY_MESSAGES`, so only
+the most recent N messages are sent while the full history stays in
+state. Long conversations stop growing the prompt without losing data.
+The `trim_messages` call itself lives in `BaseAgent.query_chat`
+(`lib/agent.py`) — for token-based budgets, pass the model there as
+`token_counter` instead of `len`.
 
 ### 10. Provider-agnostic model factory, per-agent overrides
 

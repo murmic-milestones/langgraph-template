@@ -41,7 +41,14 @@ from pathlib import Path
 from typing import TypeVar
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+    trim_messages,
+)
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 
 # Tests monkeypatch this name (tests/conftest.py); agents must reach models
@@ -113,6 +120,51 @@ class BaseAgent:
     def llm(self) -> BaseChatModel:
         model = os.getenv(self._model_env) if self._model_env else None
         return get_llm(self._temperature, model or None)
+
+    async def query_chat(
+        self,
+        system_prompt: str,
+        messages: Sequence[AnyMessage],
+        *,
+        tools: Sequence[BaseTool] = (),
+        max_messages: int | None = None,
+    ) -> AIMessage:
+        """Run the conversation through the LLM and return the reply.
+
+        The plain-text counterpart to :meth:`query_structured` — same
+        timing and logging, no schema. Keeping both here is what lets a
+        node method read as pure logic.
+
+        Args:
+            system_prompt: instructions prepended to the conversation.
+            messages: conversation so far.
+            tools: bound so the model can request calls; the graph's
+                ``ToolNode`` executes whatever it asks for.
+            max_messages: bound the prompt window to the most recent N
+                messages. State keeps the full history either way —
+                trimming affects only what is *sent*.
+        """
+
+        if max_messages is not None:
+            # start_on="human" avoids sending orphaned tool results.
+            messages = trim_messages(
+                messages,
+                strategy="last",
+                token_counter=len,
+                max_tokens=max_messages,
+                start_on="human",
+            )
+        _logger.debug("chat call starting: messages=%d", len(messages))
+
+        start = time.perf_counter()
+        llm = self.llm.bind_tools(tools) if tools else self.llm
+        reply = await llm.ainvoke([SystemMessage(content=system_prompt), *messages])
+        _logger.info(
+            "chat call ok: duration_ms=%.0f tool_calls=%d",
+            (time.perf_counter() - start) * 1000,
+            len(getattr(reply, "tool_calls", []) or []),
+        )
+        return reply
 
     async def query_structured(
         self,

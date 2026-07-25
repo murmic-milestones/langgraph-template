@@ -32,7 +32,7 @@ To REMOVE tool calling from the template entirely (grep ``[tools]`` —
 counts drift, the markers do not):
 1. delete this ``tools/`` package;
 2. in ``app/agents/chat.py`` delete every ``[tools]``-marked line (the
-   import and the ``bind_tools`` call);
+   import and the ``tools=TOOLS`` argument);
 3. in ``app/graph.py`` delete every ``[tools]``-marked line, then restore
    the plain ``builder.add_edge("chat", END)`` in place of the
    ``tools_condition`` branch;

@@ -1,36 +1,31 @@
 """Main conversation agent — the hello-world payload of the template.
 
 Replace or extend this agent with your project's real behaviour. It shows
-the simplest node shape: build a system prompt from collected state, run
-the (trimmed) message history through the model, append the reply.
+the simplest node shape: build a system prompt from collected state, ask
+the model, return the reply. Timing, logging, tool binding, and prompt
+trimming all live in ``BaseAgent.query_chat`` (``lib/agent.py``) so the
+node body stays pure logic.
 
-Two optional features live here, each removable independently:
+Two optional features are single arguments below, each removable
+independently:
 
-* ``[tools]`` — the model is bound to the tools in the ``tools/`` package so it
-  can request calls; the graph's tool node executes them. Removal steps
-  are documented in ``tools/__init__.py``.
-* ``[trim]`` — only the most recent ``MAX_HISTORY_MESSAGES`` messages are
-  sent to the model (full history stays in state — trimming affects the
-  prompt only). To remove: delete the ``trim_messages`` call and pass
-  ``state["messages"]`` directly.
+* ``[tools]`` — ``tools=TOOLS`` binds the tools in the ``tools/`` package
+  so the model can request calls; the graph's tool node executes them.
+  Removal steps are documented in ``tools/__init__.py``.
+* ``[trim]`` — ``max_messages=`` bounds the prompt window (full history
+  stays in state — trimming affects only what is *sent*). To remove:
+  delete that argument.
 """
 
 from __future__ import annotations
-
-import logging
-import time
-
-from langchain_core.messages import SystemMessage, trim_messages
 
 from app.state import AppState
 from lib.agent import BaseAgent
 from tools import TOOLS  # [tools]
 
-_logger = logging.getLogger(__name__)
-
 # [trim] Customisation knob — tune freely. Prompt window size, counted in
 # messages (not tokens). For token-based trimming, pass the model as
-# token_counter instead of len.
+# token_counter in query_chat instead of len.
 MAX_HISTORY_MESSAGES = 40
 
 # Customisation knob — edit freely; this is the template's personality
@@ -52,28 +47,10 @@ class ChatAgent(BaseAgent):
         """Node: append one assistant reply built from recent history."""
 
         name = state.get("profile", {}).get("name", "there")
-
-        # [trim] Keep the prompt bounded on long conversations.
-        # start_on="human" avoids sending orphaned tool results.
-        recent = trim_messages(
+        reply = await self.query_chat(
+            _SYSTEM_PROMPT.format(name=name),
             state["messages"],
-            strategy="last",
-            token_counter=len,
-            max_tokens=MAX_HISTORY_MESSAGES,
-            start_on="human",
-        )
-        _logger.debug(
-            "prompt window: %d of %d messages", len(recent), len(state["messages"])
-        )
-
-        start = time.perf_counter()
-        llm = self.llm.bind_tools(TOOLS)  # [tools]
-        reply = await llm.ainvoke(
-            [SystemMessage(content=_SYSTEM_PROMPT.format(name=name)), *recent]
-        )
-        _logger.info(
-            "chat reply generated: duration_ms=%.0f tool_calls=%d",
-            (time.perf_counter() - start) * 1000,
-            len(getattr(reply, "tool_calls", []) or []),
+            tools=TOOLS,  # [tools]
+            max_messages=MAX_HISTORY_MESSAGES,  # [trim]
         )
         return {"messages": [reply]}
