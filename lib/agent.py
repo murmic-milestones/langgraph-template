@@ -47,7 +47,7 @@ from pydantic import BaseModel
 # Tests monkeypatch this name (tests/conftest.py); agents must reach models
 # via self.llm so the fake keeps working — enforced by
 # tests/test_template_invariants.py (test_agents_never_import_provider_packages).
-from app.llm import get_llm
+from lib.llm import get_llm
 
 _logger = logging.getLogger(__name__)
 

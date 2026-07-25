@@ -21,17 +21,26 @@ langgraph dev             # LangGraph Studio
 
 ## Architecture
 
+Three packages by coupling. **`app/`** = tightly coupled to THIS agent
+(replace when reusing). **`lib/`** and **`tools/`** = reusable,
+project-agnostic (liftable into another LangGraph project unchanged).
+Keep new code on the right side of that line: agent-specific → `app/`;
+generic helper → `lib/`; a callable tool → its own file in `tools/`.
+
 - `app/graph.py` — graph wiring, RetryPolicy, two entry points (see
   gotcha below). Nodes/edges are registered here only.
 - `app/state.py` — TypedDict state; `messages` uses the `add_messages`
   reducer (append), `profile` overwrites. Nodes return partial updates.
 - `app/agents/` — one class per stage: **async** node methods return
   state updates, sync gate methods route conditional edges. Agents are
-  shared across sessions — keep them stateless. Per-agent model
-  overrides via `BaseAgent(model_env="MY_STAGE_MODEL")`; image input via
-  `image_message()` / `query_image_structured()` in `base.py`.
-- `app/log.py` — the only module that configures logging (enforced by
-  an invariant test). `app/` modules just do
+  shared across sessions — keep them stateless. They extend `BaseAgent`
+  from `lib/agent.py`. Per-agent model overrides via
+  `BaseAgent(model_env="MY_STAGE_MODEL")`; image input via
+  `image_message()` / `query_image_structured()` in `lib/agent.py`.
+- `lib/agent.py` — `BaseAgent` (generic LLM + structured-output + image
+  plumbing); the concrete stages in `app/agents/` subclass it.
+- `lib/log.py` — the only module that configures logging (enforced by
+  an invariant test). Modules under `app/`, `lib/`, `tools/` just do
   `logging.getLogger(__name__)` and emit; drivers call
   `configure_logging()` (env: `LOG_LEVEL`, `LOG_FORMAT=text|json`).
   Levels: DEBUG diagnostics, INFO one line per lifecycle event,
@@ -39,10 +48,10 @@ langgraph dev             # LangGraph Studio
   values are PII — never log them at any level (enforced by
   `test_no_conversation_content_in_logs`); log events + metadata
   (durations, counts, `thread_id` via `extra=`).
-- `app/llm.py` — the only place a model is constructed
+- `lib/llm.py` — the only place a model is constructed
   (`init_chat_model`, provider comes from `MODEL_NAME` env, explicit
   `model=` arg for per-agent overrides).
-- `app/env.py` — provider registry (`PROVIDERS`, with optional
+- `lib/env.py` — provider registry (`PROVIDERS`, with optional
   `preflight` checks like the Ollama server ping) and
   `check_environment(extra_model_vars=...)`, which every driver should
   call at startup. Failures raise `EnvironmentCheckError` (never
@@ -51,7 +60,9 @@ langgraph dev             # LangGraph Studio
   `init_chat_model` infers, not assumed to be OpenAI. Providers are
   defined in three places that must stay in sync: `PROVIDERS` here, the
   extras in `pyproject.toml`, and the table in `.env.example`/README.
-- `app/tools.py` — tool list for the chat ⇄ tools loop.
+- `lib/visualization.py` — Mermaid export of any compiled graph.
+- `tools/` — one `@tool` per file; `tools/__init__.py` aggregates them
+  into `TOOLS` (read by the chat agent and the graph's `ToolNode`).
 - One graph run per chat turn; incomplete onboarding ends the run and
   the next invoke re-enters from START, so nodes must be idempotent.
 
@@ -65,7 +76,7 @@ extra + the fastapi pin in `dev`), and the Google Agent Engine adapter
 pickled `__init__`, graph built in `set_up()`, never call
 `check_environment` there) are deliberately loosely coupled. Code
 blocks belonging to each are marked with the bracketed tag, and
-removal steps live in the feature's home file (`app/tools.py`,
+removal steps live in the feature's home file (`tools/__init__.py`,
 `app/agents/chat.py`, `main.py`, each example's docstring). When
 editing near a marked block, preserve the tag comments and keep the
 feature removable; when asked to remove a feature, follow its
@@ -114,7 +125,7 @@ self-contained no-LLM ones (`human_approval`, `long_term_memory`,
 - Tools run under prompt injection: the model picks tool + arguments
   from a user-steerable conversation. New tools must treat arguments as
   attacker-controlled (validate paths/URLs/ids, least privilege, gate
-  irreversible actions). Keep the SECURITY note in `app/tools.py`.
+  irreversible actions). Keep the SECURITY note in `tools/__init__.py`.
 - Conversation history is PII at rest (checkpointer stores it
   unencrypted) and must never be logged (enforced by a test).
 
@@ -136,7 +147,7 @@ self-contained no-LLM ones (`human_approval`, `long_term_memory`,
 - `STREAMING_NODES` in `main.py` whitelists which nodes stream tokens.
   Any new LLM-calling node is silent until added there; never add nodes
   that emit structured-output JSON or raw tool traffic.
-- Tests monkeypatch `app.agents.base.get_llm` — new agents must fetch
+- Tests monkeypatch `lib.agent.get_llm` — new agents must fetch
   the model via `BaseAgent.llm`, not construct one directly. The fake's
   structured results are keyed by schema class
   (`fake.structured_results[MySchema] = ...`); an un-queued schema

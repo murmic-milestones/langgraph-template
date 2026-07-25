@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.llm import get_llm
+from lib.llm import get_llm
 
 
 @pytest.fixture(autouse=True)

@@ -16,7 +16,7 @@ import os
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from app.llm import get_llm
+from lib.llm import get_llm
 
 _JUDGE_PROMPT = """\
 You are a strict quality judge for a chatbot's reply. Grade the reply

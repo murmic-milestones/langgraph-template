@@ -1,4 +1,4 @@
-"""Tests for app/log.py and the template's logging conventions."""
+"""Tests for lib/log.py and the template's logging conventions."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agents.greeter import NameCheck
 from app.graph import build_graph
-from app.log import GcpJsonFormatter, configure_logging
 from fakes import config, onboard_paul, run
+from lib.log import GcpJsonFormatter, configure_logging
 
 
 @pytest.fixture

@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import asyncio
 
-from judge import judge
 from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.graph import build_graph
+from judge import judge
 
 # Mirrors _SYSTEM_PROMPT's promises (short, warm, helpful, uses the name).
 RUBRIC = """\

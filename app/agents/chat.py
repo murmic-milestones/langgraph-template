@@ -6,9 +6,9 @@ the (trimmed) message history through the model, append the reply.
 
 Two optional features live here, each removable independently:
 
-* ``[tools]`` — the model is bound to the tools in ``app/tools.py`` so it
+* ``[tools]`` — the model is bound to the tools in the ``tools/`` package so it
   can request calls; the graph's tool node executes them. Removal steps
-  are documented in ``app/tools.py``.
+  are documented in ``tools/__init__.py``.
 * ``[trim]`` — only the most recent ``MAX_HISTORY_MESSAGES`` messages are
   sent to the model (full history stays in state — trimming affects the
   prompt only). To remove: delete the ``trim_messages`` call and pass
@@ -22,9 +22,9 @@ import time
 
 from langchain_core.messages import SystemMessage, trim_messages
 
-from app.agents.base import BaseAgent
 from app.state import AppState
-from app.tools import TOOLS  # [tools]
+from lib.agent import BaseAgent
+from tools import TOOLS  # [tools]
 
 _logger = logging.getLogger(__name__)
 

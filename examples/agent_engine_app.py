@@ -90,7 +90,7 @@ class AgentEngineApp:
         from langgraph.checkpoint.memory import InMemorySaver
 
         from app.graph import build_graph
-        from app.log import GcpJsonFormatter, configure_logging
+        from lib.log import GcpJsonFormatter, configure_logging
 
         # set_up is this deployment's driver — it owns log configuration.
         # GcpJsonFormatter adds the `severity` field Cloud Logging keys
@@ -143,14 +143,14 @@ class AgentEngineApp:
         async graph with ``asyncio.run`` is safe here — but each call
         runs in a *fresh* loop, and cached model instances keep an async
         HTTP client bound to the loop that first used them (see
-        ``app.llm.reset_llm_cache``). Dropping the cache first keeps a
+        ``lib.llm.reset_llm_cache``). Dropping the cache first keeps a
         second sync call from failing with "Event loop is closed"; the
         cost is re-initialising the model per call, which only the sync
         path pays — ``async_query`` under one long-lived loop keeps the
         cache.
         """
 
-        from app.llm import reset_llm_cache
+        from lib.llm import reset_llm_cache
 
         reset_llm_cache()
         return asyncio.run(self.async_query(message=message, thread_id=thread_id))

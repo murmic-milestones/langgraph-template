@@ -16,8 +16,8 @@ import os
 import pytest
 from dotenv import load_dotenv
 
-from app.env import PROVIDERS
-from app.llm import DEFAULT_MODEL
+from lib.env import PROVIDERS
+from lib.llm import DEFAULT_MODEL
 
 load_dotenv()
 
@@ -48,7 +48,7 @@ def fresh_model_client():
     closed". Discovered the first time the evals ran for real.
     """
 
-    from app.llm import reset_llm_cache
+    from lib.llm import reset_llm_cache
 
     reset_llm_cache()
 

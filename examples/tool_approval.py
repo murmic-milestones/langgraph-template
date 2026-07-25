@@ -2,7 +2,7 @@
 this file + tests/test_tool_approval.py]
 
 The main app's tool loop executes *every* call the model requests. That
-is fine for read-only tools, but the security notes in ``app/tools.py``
+is fine for read-only tools, but the security notes in ``tools/__init__.py``
 say irreversible actions must be gated behind human approval — this
 example is that gate. A review node sits between the model's request and
 ``ToolNode``: calls to tools named in ``APPROVAL_REQUIRED`` pause the run
@@ -35,7 +35,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import Command, interrupt
 from typing_extensions import TypedDict
 
-from app.agents.base import BaseAgent
+from lib.agent import BaseAgent
 
 _logger = logging.getLogger(__name__)
 
@@ -139,8 +139,8 @@ def build_tool_approval_graph(checkpointer=None):
 async def main() -> None:
     from dotenv import load_dotenv
 
-    from app.env import EnvironmentCheckError, check_environment
-    from app.log import configure_logging
+    from lib.env import EnvironmentCheckError, check_environment
+    from lib.log import configure_logging
 
     load_dotenv()
     configure_logging()

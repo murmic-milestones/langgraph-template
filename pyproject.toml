@@ -21,7 +21,7 @@ dependencies = [
 # Model providers: OpenAI ships in the base dependencies (it is the
 # default); install extras for the others, e.g. pip install -e ".[anthropic]"
 # then set MODEL_NAME (see .env.example). The provider table lives in
-# main.py (_PROVIDERS) — add new providers there too.
+# lib/env.py (PROVIDERS) — add new providers there too.
 anthropic = ["langchain-anthropic>=1,<2"]
 google = ["langchain-google-genai>=4,<5"]
 ollama = ["langchain-ollama>=1,<2"]
@@ -45,7 +45,9 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["app", "app.agents"]
+# app = this agent (tightly coupled); lib = reusable LangGraph helpers;
+# tools = the tool registry (both project-agnostic, adjacent to app).
+packages = ["app", "app.agents", "lib", "tools"]
 
 [tool.ruff]
 line-length = 88
@@ -61,7 +63,7 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "examples", "fakes"]
+known-first-party = ["app", "lib", "tools", "examples", "fakes", "judge"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

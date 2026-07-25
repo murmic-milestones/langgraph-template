@@ -60,14 +60,14 @@ def test_query_round_trip_is_json_serialisable(fake) -> None:
 def test_sync_query_drops_cached_models_between_loops(fake, monkeypatch) -> None:
     """query() bridges with asyncio.run, i.e. a fresh event loop per call;
     a model instance cached from an earlier loop would raise "Event loop
-    is closed" (see app.llm.reset_llm_cache). The fake LLM has no HTTP
+    is closed" (see lib.llm.reset_llm_cache). The fake LLM has no HTTP
     client to trip over, so assert the cache reset itself.
     """
 
-    import app.llm
+    import lib.llm
 
     resets: list[bool] = []
-    monkeypatch.setattr(app.llm, "reset_llm_cache", lambda: resets.append(True))
+    monkeypatch.setattr(lib.llm, "reset_llm_cache", lambda: resets.append(True))
 
     engine = AgentEngineApp()
     engine.set_up()

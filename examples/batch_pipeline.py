@@ -41,7 +41,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-from app.agents.base import BaseAgent
+from lib.agent import BaseAgent
 
 _logger = logging.getLogger(__name__)
 
@@ -154,8 +154,8 @@ async def run_batch(docs_dir: str | Path, limit: int | None = None) -> int:
 def main() -> None:
     from dotenv import load_dotenv
 
-    from app.env import EnvironmentCheckError, check_environment
-    from app.log import configure_logging
+    from lib.env import EnvironmentCheckError, check_environment
+    from lib.log import configure_logging
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("docs_dir", help="folder containing *.txt documents")

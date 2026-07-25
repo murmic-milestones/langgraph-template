@@ -21,8 +21,8 @@ import logging
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel, Field
 
-from app.agents.base import BaseAgent
 from app.state import AppState
+from lib.agent import BaseAgent
 
 _logger = logging.getLogger(__name__)
 

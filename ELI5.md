@@ -58,8 +58,8 @@ question that picks the path:
 # app/graph.py — real code:
 builder.add_conditional_edges(
     "collect_name",
-    greeter.is_name_set,          # the question: "got a name yet?"
-    {True: "chat", False: END},   # yes → chat, no → stop and wait
+    greeter.is_name_set,  # the question: "got a name yet?"
+    {True: "chat", False: END},  # yes → chat, no → stop and wait
 )
 ```
 
@@ -83,7 +83,15 @@ goes back to the model:
 chat → tools → chat → END
 ```
 
-All tools live in [app/tools.py](app/tools.py). One file, one list.
+Each tool is its own little file in [tools/](tools/), and
+[tools/__init__.py](tools/__init__.py) gathers them into one list the
+robot can reach for.
+
+> Tidy-desk idea: the code is split by *how reusable* it is.
+> [app/](app/) is **this** bot (its brain and flowchart).
+> [lib/](lib/) and [tools/](tools/) are **generic helpers** you could
+> copy straight into your next LangGraph project. You'll mostly edit
+> `app/` and `tools/`.
 
 That's it. Graph, nodes, state, gates, save slots, tools. Everything
 else is detail.
@@ -132,7 +140,7 @@ watch it use a tool. Congratulations — you're running an agent.
 pytest
 ```
 
-34 tests, ~1 second, **zero API cost** — the tests swap the real AI for
+68 tests, ~4 seconds, **zero API cost** — the tests swap the real AI for
 a fake one (`tests/fakes.py`), so they check *your wiring*, not
 OpenAI's servers. Green = safe to continue. This is the habit that
 separates toys from real projects: **change code → run pytest.**
@@ -155,17 +163,26 @@ broke.
 
 ### Step 6 — Add your first tool
 
-Open [app/tools.py](app/tools.py) and add:
+Two tiny steps. First, make a new file `tools/roll_dice.py`:
 
 ```python
 import random
+
+from langchain_core.tools import tool
+
 
 @tool
 def roll_dice(sides: int = 6) -> int:
     """Roll one die with the given number of sides."""
     return random.randint(1, sides)
+```
 
-TOOLS = [get_current_time, roll_dice]   # <- add it to the list
+Then tell the robot it exists — in [tools/__init__.py](tools/__init__.py):
+
+```python
+from tools.roll_dice import roll_dice
+
+TOOLS = [get_current_time, roll_dice]  # <- add it to the list
 ```
 
 That's the *entire* job — the docstring is how the model knows what the
@@ -275,6 +292,7 @@ Two lines at the top of your file, then shout away:
 
 ```python
 import logging
+
 _logger = logging.getLogger(__name__)
 
 _logger.info("tool executed: roll_dice")
@@ -322,7 +340,7 @@ aren't.
 | State | The shared backpack | `app/state.py` |
 | Gate | A bouncer picking the path | `is_name_set` in `greeter.py` |
 | Checkpointer | Save slots per conversation | `build_graph(checkpointer=...)` |
-| Tools | The robot's hands | `app/tools.py` |
+| Tools | The robot's hands | `tools/` (one file each) |
 | Tests | Your safety net (free + fast) | `tests/` — run `pytest` |
 | Logs | The bot's diary | `LOG_LEVEL=DEBUG` in `.env` |
 | CLAUDE.md | The AI helper's rulebook | keep it updated! |

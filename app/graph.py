@@ -14,7 +14,7 @@ conversation left off. Add stages by inserting a node + gate pair between
 The chat ⇄ tools cycle is the standard tool-calling loop: when the model
 requests tool calls, ``ToolNode`` executes them and control returns to
 ``chat`` with the results; otherwise the turn ends. Lines marked
-``[tools]`` below are removable — see ``app/tools.py`` for the steps.
+``[tools]`` below are removable — see ``tools/__init__.py`` for the steps.
 
 Two entry points:
 
@@ -45,7 +45,7 @@ from langgraph.types import RetryPolicy
 from app.agents.chat import ChatAgent
 from app.agents.greeter import GreeterAgent
 from app.state import AppState
-from app.tools import TOOLS  # [tools]
+from tools import TOOLS  # [tools]
 
 _logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ steps where it lives:
 
 | Feature | Tag | Removal steps live in |
 |---|---|---|
-| Tool calling | `[tools]` | `app/tools.py` docstring |
+| Tool calling | `[tools]` | `tools/__init__.py` docstring |
 | History trimming | `[trim]` | `app/agents/chat.py` docstring |
 | SQLite sessions | `[sqlite]` | `main.py` docstring |
 | interrupt() demo | — | delete `examples/human_approval.py` + `tests/test_examples.py` |

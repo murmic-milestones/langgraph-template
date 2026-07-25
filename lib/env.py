@@ -34,7 +34,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from importlib.util import find_spec
 
-from app.llm import DEFAULT_MODEL
+from lib.llm import DEFAULT_MODEL
 
 _logger = logging.getLogger(__name__)
 

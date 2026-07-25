@@ -2,12 +2,12 @@
 
 The rule (enforced by tests/test_template_invariants.py):
 
-* **Libraries emit, drivers configure.** Modules under ``app/`` do
-  exactly one thing with logging: ``_logger = logging.getLogger(__name__)``
-  and emit at standard levels. Handlers, formatters, and levels are set
-  only here, and :func:`configure_logging` is called only by drivers
-  (``main.py``, an adapter's ``set_up()``, your FastAPI startup) —
-  never at import time.
+* **Libraries emit, drivers configure.** Modules under ``app/``,
+  ``lib/``, and ``tools/`` do exactly one thing with logging:
+  ``_logger = logging.getLogger(__name__)`` and emit at standard levels.
+  Handlers, formatters, and levels are set only here, and
+  :func:`configure_logging` is called only by drivers (``main.py``, an
+  adapter's ``set_up()``, your FastAPI startup) — never at import time.
 
 Level conventions used across the template:
 
@@ -25,7 +25,7 @@ contract. Every vendor ships a ``logging.Handler``:
 * Cloud/containers: ``LOG_FORMAT=json`` — one JSON object per line on
   stderr; Docker/Kubernetes/Cloud Logging collectors parse it natively.
 * Python-native vendors: ``configure_logging(handlers=[SentryHandler()])``
-  (or Datadog, Syslog, ...) — nothing under ``app/`` changes.
+  (or Datadog, Syslog, ...) — no emitting module changes.
 * OpenTelemetry: attach ``opentelemetry.sdk._logs.LoggingHandler`` the
   same way for OTLP export to any backend.
 

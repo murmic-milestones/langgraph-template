@@ -112,9 +112,9 @@ def main() -> None:
     from dotenv import load_dotenv
     from langgraph.checkpoint.memory import InMemorySaver
 
-    from app.env import EnvironmentCheckError, check_environment
     from app.graph import build_graph
-    from app.log import configure_logging
+    from lib.env import EnvironmentCheckError, check_environment
+    from lib.log import configure_logging
 
     load_dotenv()
     configure_logging()

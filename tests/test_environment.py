@@ -1,4 +1,4 @@
-"""Tests for the provider-aware startup check in app/env.py.
+"""Tests for the provider-aware startup check in lib/env.py.
 
 ``find_spec`` is always monkeypatched so results do not depend on which
 provider packages happen to be installed in the developer's environment.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app import env
+from lib import env
 
 
 @pytest.fixture(autouse=True)

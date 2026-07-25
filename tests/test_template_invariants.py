@@ -31,7 +31,7 @@ _PROVIDER_PACKAGES = (
 def test_providers_stay_in_sync_across_config_files() -> None:
     """Every PROVIDERS row needs its pyproject extra and .env.example row."""
 
-    from app.env import PROVIDERS
+    from lib.env import PROVIDERS
 
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
@@ -53,9 +53,14 @@ def test_providers_stay_in_sync_across_config_files() -> None:
 
 
 def test_agents_never_import_provider_packages() -> None:
-    """Agents must get models via BaseAgent.llm, not construct their own."""
+    """Agents must get models via BaseAgent.llm, not construct their own.
 
-    for path in (ROOT / "app" / "agents").glob("*.py"):
+    Covers the concrete stages (``app/agents``) and the shared base
+    (``lib/agent.py``) — all reach models through the get_llm seam.
+    """
+
+    paths = [*(ROOT / "app" / "agents").glob("*.py"), ROOT / "lib" / "agent.py"]
+    for path in paths:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import | ast.ImportFrom):
@@ -71,20 +76,22 @@ def test_agents_never_import_provider_packages() -> None:
 
 
 def test_only_log_module_configures_logging() -> None:
-    """Libraries emit, drivers configure — app/ modules must not touch
-    handlers or logging config (that's app/log.py's job)."""
+    """Libraries emit, drivers configure — no module under app/, lib/, or
+    tools/ may touch handlers or logging config (that is lib/log.py's job)."""
 
     forbidden = {"basicConfig", "dictConfig", "fileConfig", "addHandler"}
-    for path in (ROOT / "app").rglob("*.py"):
-        if path.name == "log.py":
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr in forbidden:
-                raise AssertionError(
-                    f"{path.relative_to(ROOT)} calls '{node.attr}' — only "
-                    "app/log.py configures logging (see CLAUDE.md)"
-                )
+    log_module = ROOT / "lib" / "log.py"
+    for base in ("app", "lib", "tools"):
+        for path in (ROOT / base).rglob("*.py"):
+            if path == log_module:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) and node.attr in forbidden:
+                    raise AssertionError(
+                        f"{path.relative_to(ROOT)} calls '{node.attr}' — only "
+                        "lib/log.py configures logging (see CLAUDE.md)"
+                    )
 
 
 def test_all_graph_nodes_are_async() -> None:

@@ -30,10 +30,10 @@ from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from app.env import EnvironmentCheckError, check_environment
 from app.graph import build_graph
-from app.log import configure_logging
-from app.visualization import to_mermaid
+from lib.env import EnvironmentCheckError, check_environment
+from lib.log import configure_logging
+from lib.visualization import to_mermaid
 
 _logger = logging.getLogger(__name__)
 

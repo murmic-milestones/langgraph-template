@@ -6,8 +6,8 @@ import base64
 
 import pytest
 
-import app.agents.base as base
-from app.agents.base import BaseAgent, image_message
+import lib.agent as base
+from lib.agent import BaseAgent, image_message
 
 FAKE_JPEG = b"\xff\xd8\xff\xe0-not-really-a-jpeg-"
 

@@ -14,5 +14,5 @@ def fake(monkeypatch) -> FakeLLM:
     """
 
     fake = FakeLLM()
-    monkeypatch.setattr("app.agents.base.get_llm", lambda *args, **kwargs: fake)
+    monkeypatch.setattr("lib.agent.get_llm", lambda *args, **kwargs: fake)
     return fake

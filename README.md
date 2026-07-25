@@ -39,19 +39,29 @@ langgraph-template/
 │   ├── test_logging.py     # log levels, JSON format, PII rule
 │   ├── test_persistence.py # SQLite durability             [removable]
 │   └── test_<example>.py   # one per examples/ demo        [removable]
-└── app/
-    ├── state.py            # typed state schema + reducers
-    ├── log.py              # logging config (the vendor seam)
-    ├── llm.py              # provider-agnostic model factory
-    ├── env.py              # provider registry + startup checks
-    ├── graph.py            # graph assembly, retries, Studio entry point
-    ├── tools.py            # tools for the chat agent       [removable]
-    ├── visualization.py    # Mermaid export helpers
-    └── agents/
-        ├── base.py         # BaseAgent: LLM, structured-output + image plumbing
-        ├── greeter.py      # onboarding stage (node + gate)
-        └── chat.py         # main conversation stage (tools + trimming)
+├── app/                    # THIS agent — tightly coupled, replace freely
+│   ├── state.py            #   typed state schema + reducers
+│   ├── graph.py            #   graph assembly, retries, Studio entry point
+│   └── agents/
+│       ├── greeter.py      #   onboarding stage (node + gate)
+│       └── chat.py         #   main conversation stage (tools + trimming)
+├── lib/                    # reusable LangGraph helpers — project-agnostic,
+│   ├── llm.py              #   liftable into any project unchanged
+│   ├── env.py              #   provider registry + startup checks
+│   ├── log.py              #   logging config (the vendor seam)
+│   ├── visualization.py    #   Mermaid export helpers
+│   └── agent.py            #   BaseAgent: LLM, structured-output + image plumbing
+└── tools/                  # tool registry — one tool per file  [removable]
+    ├── __init__.py         #   aggregates TOOLS + how-to/security docstring
+    └── get_current_time.py #   the example tool
 ```
+
+**Layering.** `app/` holds only what is specific to *this* agent (its
+state schema, its graph wiring, its concrete stages). Everything reusable
+across LangGraph projects lives adjacent to it: `lib/` (model factory,
+provider/env checks, logging, visualisation, the `BaseAgent` base class)
+and `tools/` (one `@tool` per file). Copy `lib/` and `tools/` into another
+project unchanged; rewrite `app/`.
 
 ## Starting a new project from this template
 
@@ -105,7 +115,7 @@ langgraph-template/
 
    * Rename `pyproject.toml`'s `name`, update `LICENSE`'s copyright line.
    * Replace the agents in `app/agents/`, add your tools in
-     `app/tools.py`, extend `Profile`/`AppState` in `app/state.py`,
+     `tools/__init__.py`, extend `Profile`/`AppState` in `app/state.py`,
      register nodes in `app/graph.py`.
    * Remove the optional features you don't need — each one lists its
      removal steps where it lives (see "Optional features" below).
@@ -132,7 +142,7 @@ State is persisted per `thread_id` by a **checkpointer**, chosen by
 whoever owns the runtime:
 
 ```python
-graph = build_graph(checkpointer=InMemorySaver())   # or a SQLite/Postgres saver
+graph = build_graph(checkpointer=InMemorySaver())  # or a SQLite/Postgres saver
 config = {"configurable": {"thread_id": session_id}}
 state = await graph.ainvoke({"messages": [HumanMessage(content=text)]}, config)
 ```
@@ -179,7 +189,7 @@ the graph state.
 
 ### 6. Tool calling (the chat ⇄ tools loop)
 
-`app/tools.py` defines plain `@tool` functions; the chat agent binds
+`tools/__init__.py` defines plain `@tool` functions; the chat agent binds
 them and `ToolNode` executes whatever the model requests, looping back
 to `chat` until it answers without tool calls (`tools_condition` does
 the routing). Add a tool = write one decorated function and append it to
@@ -214,7 +224,7 @@ token-based budgets, pass the model itself as `token_counter`.
 
 ### 10. Provider-agnostic model factory, per-agent overrides
 
-`app/llm.py` uses `init_chat_model`, so the model — including the
+`lib/llm.py` uses `init_chat_model`, so the model — including the
 provider — is just the `MODEL_NAME` env string. See "Model providers".
 
 Different graph stages can run **different models** as pure
@@ -256,7 +266,7 @@ different behaviour.
 
 `tests/` drives whole conversation turns through the compiled graph with
 no network: `conftest.py` monkeypatches the LLM factory at the seam all
-agents use (`app.agents.base.get_llm`) and substitutes a recording fake
+agents use (`lib.agent.get_llm`) and substitutes a recording fake
 (`fakes.py`) that supports plain, structured, and tool-binding calls.
 This exercises real routing, reducers, checkpointing, tool execution,
 and trimming — the whole suite runs in well under a second.
@@ -277,24 +287,24 @@ installed on the machine running the tests.
 
 ### 14. Visualisation, Studio, CI
 
-`python main.py --graph` prints Mermaid source (`app/visualization.py`
+`python main.py --graph` prints Mermaid source (`lib/visualization.py`
 also renders PNG). `langgraph dev` opens the graph in **LangGraph
 Studio** for step-through debugging. GitHub Actions runs ruff + pytest
 on Python 3.10/3.12/3.14 for every push and PR.
 
 ### 15. Image (vision) input
 
-`image_message(text, path)` in `app/agents/base.py` builds the
+`image_message(text, path)` in `lib/agent.py` builds the
 provider-agnostic content blocks for one image + prompt, and
 `self.query_image_structured(...)` combines it with structured output —
 the building blocks of any "analyse this picture" agent:
 
 ```python
 result = await self.query_image_structured(
-    "You are a photo analyst ...",     # system prompt
-    "What is in this photo?",          # user text
+    "You are a photo analyst ...",  # system prompt
+    "What is in this photo?",  # user text
     image_path,
-    PhotoCheck,                        # Pydantic schema
+    PhotoCheck,  # Pydantic schema
 )
 ```
 
@@ -334,7 +344,7 @@ by tests:
   `logging.getLogger(__name__)` and emits at standard levels (DEBUG =
   diagnostics, INFO = one line per lifecycle event, WARNING = degraded,
   ERROR = failed). Handlers/formatters are set only by
-  `configure_logging()` in `app/log.py`, called from drivers
+  `configure_logging()` in `lib/log.py`, called from drivers
   (`main.py`, an adapter's `set_up()`) — never at import. An invariant
   test blocks config calls elsewhere.
 * **Conversation content and profile values are PII** — they never
@@ -403,7 +413,7 @@ comments. Removal never requires understanding the feature's internals.
 
 | Feature | Lives in | Remove by |
 |---|---|---|
-| Tool calling `[tools]` | `app/tools.py`, 2 marked lines in `chat.py`, 4 in `graph.py` | steps listed in `app/tools.py` docstring |
+| Tool calling `[tools]` | `tools/__init__.py`, 2 marked lines in `chat.py`, 4 in `graph.py` | steps listed in `tools/__init__.py` docstring |
 | History trimming `[trim]` | `app/agents/chat.py` | delete the `trim_messages` call, pass `state["messages"]` |
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
 | interrupt() demo | `examples/human_approval.py`, `tests/test_human_approval.py` | delete both files |
@@ -436,7 +446,7 @@ serve` or the desktop app) and pull the model (`ollama pull llama3.2`)
 first. Note that the greeter relies on structured output and the chat
 stage on tool calling, so pick an Ollama model that supports tools.
 
-`check_environment()` in `app/env.py` validates every configured model
+`check_environment()` in `lib/env.py` validates every configured model
 (the `MODEL_NAME` default plus any per-agent override variables you pass
 via `extra_model_vars`) before the first run: provider package present,
 API key set, and — where the provider row defines a `preflight` — extra
@@ -447,7 +457,7 @@ will actually infer for it (`gpt-*` → OpenAI, `claude-*` → Anthropic,
 `EnvironmentCheckError` with a fix-it message, and each driver picks its
 reaction — `main.py` turns it into a clean exit, a server should log it
 and refuse to start. To add another provider: one `Provider` row in
-`app/env.py`, one extra in `pyproject.toml`, one example line in
+`lib/env.py`, one extra in `pyproject.toml`, one example line in
 `.env.example`.
 
 ## Working with AI coding tools
@@ -526,6 +536,7 @@ request body/path (see Security below):
 ```python
 graph = build_graph(checkpointer=my_durable_checkpointer)
 
+
 @app.post("/chat")
 async def chat(text: str, user=Depends(current_user)) -> dict:
     # thread_id is derived server-side from who is logged in.
@@ -552,12 +563,12 @@ Two issues live above the code and are easy to get wrong:
   merges everyone into one session — which is why the Agent Engine
   adapter requires an explicit `thread_id` rather than defaulting.
 * **Tools run under prompt injection.** The chat model is bound to the
-  tools in `app/tools.py`, and a user can steer *which* tool it calls
+  tools in `tools/__init__.py`, and a user can steer *which* tool it calls
   and *with what arguments* via a crafted message. Treat every tool
   argument as attacker-controlled: keep tools least-privilege, validate
   inputs, and gate irreversible actions behind human approval
   (`examples/tool_approval.py` is the wiring to copy). Full guidance is
-  in `app/tools.py`.
+  in `tools/__init__.py`.
 
 Also worth a look before production: conversation history is stored
 **unencrypted at rest** by the checkpointer (the SQLite `--db` file, or

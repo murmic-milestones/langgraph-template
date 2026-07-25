@@ -6,7 +6,7 @@ code change: ``init_chat_model`` resolves ``"provider:model"`` strings
 (``openai:...``, ``anthropic:...``, ``google_genai:...``, ``ollama:...``)
 as soon as the matching integration package is installed — extras for
 each are defined in ``pyproject.toml``, and the supported-provider table
-lives in ``app/env.py`` (``PROVIDERS``).
+lives in ``lib/env.py`` (``PROVIDERS``).
 
 Agents that need a different model from the rest of the graph pass an
 explicit ``model`` string (see ``BaseAgent``'s ``model_env``); everything

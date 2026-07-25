@@ -39,7 +39,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 from typing_extensions import TypedDict
 
-from app.agents.base import BaseAgent
+from lib.agent import BaseAgent
 
 _logger = logging.getLogger(__name__)
 
@@ -118,8 +118,8 @@ async def amain(topic: str) -> None:
 def main() -> None:
     from dotenv import load_dotenv
 
-    from app.env import EnvironmentCheckError, check_environment
-    from app.log import configure_logging
+    from lib.env import EnvironmentCheckError, check_environment
+    from lib.log import configure_logging
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("topic", help="what the briefing is about")

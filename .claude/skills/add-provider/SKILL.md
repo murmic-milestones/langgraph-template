@@ -9,7 +9,7 @@ Add a model provider. Providers are pure configuration — no agent or
 graph code changes. Three files must stay in sync (an invariant test,
 `test_providers_stay_in_sync_across_config_files`, fails until they do):
 
-1. **`app/env.py`**: add a `Provider` row to `PROVIDERS` — import
+1. **`lib/env.py`**: add a `Provider` row to `PROVIDERS` — import
    package name, exact install hint, API-key env var (or `None` if the
    provider authenticates another way; add a `preflight` callable if a
    local server or credential needs checking, like Ollama's).

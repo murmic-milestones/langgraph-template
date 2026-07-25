@@ -18,8 +18,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agents.greeter import NameCheck
 from app.graph import build_graph
-from app.visualization import to_mermaid
 from fakes import config, onboard_paul, run
+from lib.visualization import to_mermaid
 
 
 def test_onboarding_then_chat(fake) -> None:
