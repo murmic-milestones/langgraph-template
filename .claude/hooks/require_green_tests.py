@@ -1,6 +1,6 @@
 """Stop hook: the AI is not done until pytest is green.
 
-The suite is fake-LLM based (~1s, no API key, no network), which is what
+The suite is fake-LLM based (a few seconds, no API key, no network), which is what
 makes an every-stop test gate affordable — keep it that way. Exit code 2
 blocks the stop and feeds the failure back to the model; the
 ``stop_hook_active`` guard lets it stop on the second attempt instead of

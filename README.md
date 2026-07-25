@@ -269,7 +269,7 @@ no network: `conftest.py` monkeypatches the LLM factory at the seam all
 agents use (`lib.agent.get_llm`) and substitutes a recording fake
 (`fakes.py`) that supports plain, structured, and tool-binding calls.
 This exercises real routing, reducers, checkpointing, tool execution,
-and trimming — the whole suite runs in well under a second.
+and trimming — the whole suite runs in a few seconds with no API key.
 
 Structured results are **keyed by schema class**, so graphs with many
 structured-output agents need no fake per agent:

@@ -7,21 +7,23 @@ description: Cleanly remove one of the template's optional features
 ---
 
 Remove an optional feature completely — code, tests, deps, and docs.
-Each feature is tagged in code comments and documents its own removal
-steps where it lives:
 
-| Feature | Tag | Removal steps live in |
-|---|---|---|
-| Tool calling | `[tools]` | `tools/__init__.py` docstring |
-| History trimming | `[trim]` | `app/agents/chat.py` docstring |
-| SQLite sessions | `[sqlite]` | `main.py` docstring |
-| interrupt() demo | — | delete `examples/human_approval.py` + `tests/test_examples.py` |
-| Agent Engine adapter | — | delete `examples/agent_engine_app.py` + `tests/test_agent_engine.py` + the `[vertexai]` extra |
+The **README "Optional features — how to add or remove" table is the
+authoritative list** of every removable feature and exactly what to
+delete (it is kept complete). Read that table first rather than relying
+on a copy here. In-tree features are also tagged in code comments and
+document their own removal steps where they live:
+
+- Tool calling `[tools]` → `tools/__init__.py` docstring
+- History trimming `[trim]` → `app/agents/chat.py` docstring
+- SQLite sessions `[sqlite]` → `main.py` docstring
+- each `examples/<name>.py` demo → its own module docstring; delete it
+  together with `tests/test_<name>.py` (and any extra it owns)
 
 Procedure:
 
-1. Search the codebase for the feature's tag and follow the documented
-   steps exactly — they are kept current.
+1. Look up the feature in the README table (and any `[tag]` in code);
+   follow the documented steps exactly — they are kept current.
 2. Delete the feature's test file(s) or the specific tests exercising
    it (e.g. `test_tool_calling_loop` for `[tools]`).
 3. Remove its dependency/extra from `pyproject.toml` if no other
