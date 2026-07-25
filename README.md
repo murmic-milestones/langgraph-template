@@ -413,7 +413,7 @@ comments. Removal never requires understanding the feature's internals.
 
 | Feature | Lives in | Remove by |
 |---|---|---|
-| Tool calling `[tools]` | `tools/__init__.py`, 2 marked lines in `chat.py`, 4 in `graph.py` | steps listed in `tools/__init__.py` docstring |
+| Tool calling `[tools]` | `tools/`, plus every `[tools]`-marked line in `app/agents/chat.py` and `app/graph.py` | steps listed in `tools/__init__.py` docstring |
 | History trimming `[trim]` | `app/agents/chat.py` | delete the `trim_messages` call, pass `state["messages"]` |
 | SQLite sessions `[sqlite]` | `main.py` `--db` blocks, `tests/test_persistence.py` | delete the marked blocks + test + `langgraph-checkpoint-sqlite` dep |
 | interrupt() demo | `examples/human_approval.py`, `tests/test_human_approval.py` | delete both files |

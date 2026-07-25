@@ -28,12 +28,16 @@ attacker-controlled:
   is the wiring to copy; ``examples/human_approval.py`` shows the bare
   interrupt() mechanism).
 
-To REMOVE tool calling from the template entirely:
+To REMOVE tool calling from the template entirely (grep ``[tools]`` —
+counts drift, the markers do not):
 1. delete this ``tools/`` package;
-2. in ``app/agents/chat.py`` drop the ``bind_tools`` call (marked
-   ``[tools]``);
-3. in ``app/graph.py`` delete the three ``[tools]`` lines and restore the
-   plain ``builder.add_edge("chat", END)``.
+2. in ``app/agents/chat.py`` delete every ``[tools]``-marked line (the
+   import and the ``bind_tools`` call);
+3. in ``app/graph.py`` delete every ``[tools]``-marked line, then restore
+   the plain ``builder.add_edge("chat", END)`` in place of the
+   ``tools_condition`` branch;
+4. delete ``test_tool_calling_loop`` in ``tests/test_graph.py`` and drop
+   ``"tools"`` from ``test_graph_wiring_renders_all_nodes``.
 """
 
 from __future__ import annotations

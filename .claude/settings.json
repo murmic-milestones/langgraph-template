@@ -9,6 +9,7 @@
       "Bash(python -m ruff *)",
       "Bash(python main.py*)",
       "Bash(python examples/*)",
+      "Bash(python -m examples*)",
       "Bash(langgraph dev*)",
       "Bash(pip install -e*)",
       "Bash(git status)",
